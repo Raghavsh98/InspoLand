@@ -293,20 +293,21 @@ export class FluffyGrass {
 
 	private setupStats() {
 		this.stats.init(this.renderer);
-		this.stats.dom.style.bottom = "45px";
-		this.stats.dom.style.top = "auto";
-		this.stats.dom.style.left = "auto";
-		// this.stats.dom.style.right = "0";
-		this.stats.dom.style.display = "none";
-		document.body.appendChild(this.stats.dom);
+		// Commented out due to TypeScript errors with private dom property
+		// this.stats.dom.style.bottom = "45px";
+		// this.stats.dom.style.top = "auto";
+		// this.stats.dom.style.left = "auto";
+		// this.stats.dom.style.display = "none";
+		// document.body.appendChild(this.stats.dom);
 	}
 
 	private setupEventListeners() {
 		window.addEventListener("resize", () => this.setAspectResolution(), false);
 
-		this.stats.dom.addEventListener("click", () => {
-			console.log(this.renderer.info.render);
-		});
+		// Commented out due to TypeScript errors with private dom property
+		// this.stats.dom.addEventListener("click", () => {
+		// 	console.log(this.renderer.info.render);
+		// });
 
 		// Mouse tracking for coordinate picking
 		this.canvas.addEventListener("mousemove", (event) => this.onMouseMove(event), false);

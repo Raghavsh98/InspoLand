@@ -29,6 +29,28 @@
 
   <canvas id="canvas"></canvas>
   <!-- <button class="randomizeButton">Randomize</button> -->
+  
+  <!-- Top text elements -->
+  <div class="top-left-text">inspiration grasslands</div>
+  <div class="top-right-text"><a href="#" id="designer-notes-link">note from the designer</a></div>
+  
+  <!-- Popup Modal -->
+  <div id="designer-popup" class="popup-overlay">
+    <div class="popup-content">
+      <button class="popup-close" id="popup-close">&times;</button>
+      <div class="popup-text">
+        <p>Delighted you're here :)</p>
+        <br>
+        <p>My name is Raghav! ("Raa-gv")</p>
+        <p>Im a product designer based in Seattle and on the rainiest days here, I love to revisit things that help kindle my design spark.</p>
+        <br>
+        <p>I hope in this grassland you find some design inspiration too! If you wish to share your favourite pieces that have inspire your work on hard days, <a href="https://x.com/raghavpink" target="_blank">DM me on X</a>.</p>
+        <br>
+        <p>See more of my work <a href="https://www.raghavsharma.work/" target="_blank">here</a>.</p>
+        <p>Big credits to <a href="https://x.com/th_ebenezer" target="_blank">@th_ebenezer</a>, whose fluffy grass I could rework for this piece. The rest: vibe coded in cursor.</p>
+      </div>
+    </div>
+  </div>
   <div class="camera-panel">
     <h3>Camera Position</h3>
     <div class="coordinate">
@@ -61,6 +83,38 @@
     <div class="mouse-info">Click to copy coordinates</div>
   </div>
   <script type="module" src="/src/main.ts"></script>
+  
+  <script>
+    // Popup functionality
+    const designerLink = document.getElementById('designer-notes-link');
+    const popup = document.getElementById('designer-popup');
+    const popupClose = document.getElementById('popup-close');
+    
+    // Open popup
+    designerLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      popup.classList.add('show');
+    });
+    
+    // Close popup with close button
+    popupClose.addEventListener('click', function() {
+      popup.classList.remove('show');
+    });
+    
+    // Close popup when clicking outside
+    popup.addEventListener('click', function(e) {
+      if (e.target === popup) {
+        popup.classList.remove('show');
+      }
+    });
+    
+    // Close popup with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && popup.classList.contains('show')) {
+        popup.classList.remove('show');
+      }
+    });
+  </script>
 </body>
 
 </html>
