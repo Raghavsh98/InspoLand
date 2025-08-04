@@ -6,6 +6,7 @@ import * as dat from "dat.gui";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 import { GrassMaterial } from "./GrassMaterial";
+import { OrbSystem } from "./OrbSystem";
 
 export class FluffyGrass {
 	// # Need access to these outside the comp
@@ -38,6 +39,7 @@ export class FluffyGrass {
 	private grassGeometry = new THREE.BufferGeometry();
 	private grassMaterial: GrassMaterial;
 	private grassCount = 8000;
+	private orbSystem: OrbSystem;
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -216,6 +218,9 @@ export class FluffyGrass {
 				});
 
 				this.addGrass(terrainMesh, this.grassGeometry);
+				
+				// Initialize orb system after terrain is loaded
+				this.orbSystem = new OrbSystem(this.scene, this.camera, terrainMesh);
 			});
 		});
 
@@ -225,6 +230,12 @@ export class FluffyGrass {
 	public render() {
 		this.Uniforms.uTime.value += this.clock.getDelta();
 		this.grassMaterial.update(this.Uniforms.uTime.value);
+		
+		// Update orb system if initialized
+		if (this.orbSystem) {
+			this.orbSystem.update(Date.now());
+		}
+		
 		this.renderer.render(this.scene, this.camera);
 		// this.postProcessingManager.update();
 		this.stats.update();
