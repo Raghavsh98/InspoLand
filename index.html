@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="/src/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fluffy Grass Three.js</title>
   <meta name="description"
@@ -42,12 +45,17 @@
         <p>Delighted you're here :)</p>
         <br>
         <p>My name is Raghav! ("Raa-gv")</p>
-        <p>Im a product designer based in Seattle and on the rainiest days here, I love to revisit things that help kindle my design spark.</p>
+        <p>Im a product designer based in Seattle and on the rainiest days here, I love to revisit things that spark my design forward.</p>
         <br>
-        <p>I hope in this grassland you find some design inspiration too! If you wish to share your favourite pieces that have inspire your work on hard days, <a href="https://x.com/raghavpink" target="_blank">DM me on X</a>.</p>
+        <p>I hope in this grassland you find some design inspiration too! If you wish to share your favourite pieces that have inspired your work on hard days, <a href="https://x.com/raghavpink" target="_blank">DM me on X</a>.</p>
         <br>
         <p>See more of my work <a href="https://www.raghavsharma.work/" target="_blank">here</a>.</p>
-        <p>Big credits to <a href="https://x.com/th_ebenezer" target="_blank">@th_ebenezer</a>, whose fluffy grass I could rework for this piece. The rest: vibe coded in cursor.</p>
+        <p>Big thanks to <a href="https://x.com/th_ebenezer" target="_blank">@th_ebenezer</a>, whose fluffy grass I reworked for this piece. The rest, vibe coded in Cursor.</p>
+        
+        <div class="signature-area">
+          <div class="signature">Raghav</div>
+          <div class="timestamp" id="popup-timestamp"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -89,29 +97,57 @@
     const designerLink = document.getElementById('designer-notes-link');
     const popup = document.getElementById('designer-popup');
     const popupClose = document.getElementById('popup-close');
+    let clockInterval = null;
+    
+    // Function to update the clock
+    function updateClock() {
+      const now = new Date();
+      const timestamp = now.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+      document.getElementById('popup-timestamp').textContent = timestamp;
+    }
     
     // Open popup
     designerLink.addEventListener('click', function(e) {
       e.preventDefault();
+      
+      // Start the live clock
+      updateClock(); // Update immediately
+      clockInterval = setInterval(updateClock, 1000); // Update every second
+      
       popup.classList.add('show');
     });
     
-    // Close popup with close button
-    popupClose.addEventListener('click', function() {
+    // Function to close popup and stop clock
+    function closePopup() {
       popup.classList.remove('show');
-    });
+      if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+      }
+    }
+    
+    // Close popup with close button
+    popupClose.addEventListener('click', closePopup);
     
     // Close popup when clicking outside
     popup.addEventListener('click', function(e) {
       if (e.target === popup) {
-        popup.classList.remove('show');
+        closePopup();
       }
     });
     
     // Close popup with Escape key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && popup.classList.contains('show')) {
-        popup.classList.remove('show');
+        closePopup();
       }
     });
   </script>
