@@ -236,6 +236,10 @@ export class FluffyGrass {
 		// Update orb system if initialized
 		if (this.orbSystem) {
 			this.orbSystem.update(Date.now());
+			
+			// Update grass material with orb lighting data
+			const orbData = this.orbSystem.getSimpleOrbData();
+			this.grassMaterial.updateOrbLighting(orbData.positions, orbData.intensities);
 		}
 		
 		this.renderer.render(this.scene, this.camera);

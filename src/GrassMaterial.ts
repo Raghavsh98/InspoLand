@@ -37,6 +37,11 @@ export class GrassMaterial {
 		tipColor2: { value: new THREE.Color(this.grassColorProps.tipColor2) },
 		noiseTexture: { value: new THREE.Texture() },
 		grassAlphaTexture: { value: new THREE.Texture() },
+		// Simple orb lighting
+		uOrbPosition1: { value: new THREE.Vector3(0, -100, 0) },
+		uOrbPosition2: { value: new THREE.Vector3(0, -100, 0) },
+		uOrbIntensity1: { value: 0.0 },
+		uOrbIntensity2: { value: 0.0 },
 	};
 
 	private mergeUniforms(newUniforms?: GrassUniformsInterface) {
@@ -88,6 +93,11 @@ export class GrassMaterial {
 				uGrassAlphaTexture: this.uniforms.grassAlphaTexture,
 				fogColor2: this.uniforms.fogColor2,
 				fogColor3: this.uniforms.fogColor3,
+				// Simple orb lighting uniforms
+				uOrbPosition1: this.uniforms.uOrbPosition1,
+				uOrbPosition2: this.uniforms.uOrbPosition2,
+				uOrbIntensity1: this.uniforms.uOrbIntensity1,
+				uOrbIntensity2: this.uniforms.uOrbIntensity2,
 			};
 
 			shader.vertexShader = `
@@ -106,6 +116,7 @@ export class GrassMaterial {
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec2 vWindColor;
+      varying vec3 vWorldPosition;
       void main() {
         #include <color_vertex>
         
@@ -157,6 +168,7 @@ export class GrassMaterial {
         vNormal = normalize(normalMatrix * normal);
         vWindColor = vec2(xDisp,zDisp);
         vViewPosition = mvPosition.xyz;
+        vWorldPosition = modelPosition.xyz;
       }    
       `;
 
@@ -185,13 +197,20 @@ export class GrassMaterial {
       uniform float uGrassLightIntensity;
       uniform float uShadowDarkness;
       uniform float uDayTime;
-      varying vec3 vColor;
       
+      // Simple orb lighting uniforms
+      uniform vec3 uOrbPosition1;
+      uniform vec3 uOrbPosition2;
+      uniform float uOrbIntensity1;
+      uniform float uOrbIntensity2;
+      
+      varying vec3 vColor;
       varying vec2 vUv;
       varying vec2 vGlobalUV;
       varying vec3 vNormal;
       varying vec3 vViewPosition;
       varying vec2 vWindColor;
+      varying vec3 vWorldPosition;
       
       void main() {
         vec4 grassAlpha = texture2D(uGrassAlphaTexture,vUv);
@@ -239,6 +258,27 @@ export class GrassMaterial {
             grassFinalColor = grassFinalColor ;
           }
         diffuseColor.rgb = clamp(diffuseColor.rgb*shadow,0.0,1.0);
+        
+        // Simple orb lighting calculation
+        vec3 orbGlow = vec3(0.0);
+        
+        // Orb 1
+        if(uOrbIntensity1 > 0.0) {
+          float dist1 = distance(vWorldPosition, uOrbPosition1);
+          float falloff1 = 1.0 / (1.0 + dist1 * dist1 * 0.05);
+          falloff1 = smoothstep(0.0, 1.0, falloff1);
+          orbGlow += vec3(0.96, 0.96, 0.94) * uOrbIntensity1 * falloff1 * 0.1;
+        }
+        
+        // Orb 2
+        if(uOrbIntensity2 > 0.0) {
+          float dist2 = distance(vWorldPosition, uOrbPosition2);
+          float falloff2 = 1.0 / (1.0 + dist2 * dist2 * 0.05);
+          falloff2 = smoothstep(0.0, 1.0, falloff2);
+          orbGlow += vec3(0.96, 0.96, 0.94) * uOrbIntensity2 * falloff2 * 0.1;
+        }
+        
+        grassFinalColor += orbGlow;
 
         #include <alphatest_fragment>
         gl_FragColor = vec4(grassFinalColor ,1.0);
@@ -263,6 +303,26 @@ export class GrassMaterial {
 	setupTextures(grassAlphaTexture: THREE.Texture, noiseTexture: THREE.Texture) {
 		this.uniforms.grassAlphaTexture.value = grassAlphaTexture;
 		this.uniforms.noiseTexture.value = noiseTexture;
+	}
+
+	updateOrbLighting(orbPositions: THREE.Vector3[], orbIntensities: number[]) {
+		// Update orb 1
+		if (orbPositions.length > 0) {
+			this.uniforms.uOrbPosition1.value.copy(orbPositions[0]);
+			this.uniforms.uOrbIntensity1.value = orbIntensities[0] * 0.02; // Scale down intensity
+		} else {
+			this.uniforms.uOrbPosition1.value.set(0, -100, 0); // Hide orb
+			this.uniforms.uOrbIntensity1.value = 0;
+		}
+		
+		// Update orb 2
+		if (orbPositions.length > 1) {
+			this.uniforms.uOrbPosition2.value.copy(orbPositions[1]);
+			this.uniforms.uOrbIntensity2.value = orbIntensities[1] * 0.02; // Scale down intensity
+		} else {
+			this.uniforms.uOrbPosition2.value.set(0, -100, 0); // Hide orb
+			this.uniforms.uOrbIntensity2.value = 0;
+		}
 	}
 
 	setupGUI(gui: GUI) {

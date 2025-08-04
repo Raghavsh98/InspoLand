@@ -108,8 +108,8 @@ export class OrbSystem {
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.copy(position);
 
-        // Create point light for glow effect - off-white light
-        const light = new THREE.PointLight(0xf5f5f0, 2, 5); // Off-white light, intensity 2, distance 5
+        // Create point light for glow effect - extremely high intensity to penetrate custom grass shader
+        const light = new THREE.PointLight(0xf5f5f0, 50, 15); // Extremely high intensity and large radius
         light.position.copy(position);
 
         // Add to scene
@@ -256,6 +256,38 @@ export class OrbSystem {
         this.scene.remove(orb.light);
         orb.mesh.geometry.dispose();
         this.orbs.splice(index, 1);
+    }
+
+    public getSimpleOrbData(): { positions: THREE.Vector3[], intensities: number[] } {
+        const positions: THREE.Vector3[] = [];
+        const intensities: number[] = [];
+        
+        for (const orb of this.orbs) {
+            positions.push(orb.mesh.position.clone());
+            
+            // Calculate eased intensity based on orb lifecycle
+            const currentTime = Date.now();
+            const orbAge = currentTime - orb.startTime;
+            let easedIntensity = orb.light.intensity;
+            
+            if (orb.phase === 'rising') {
+                // Fade in during rising phase (0.5 seconds)
+                const risingProgress = Math.min(orbAge / 500, 1); // 500ms rising phase
+                const easeOut = 1 - Math.pow(1 - risingProgress, 3); // Cubic ease-out
+                easedIntensity = orb.light.intensity * easeOut;
+            } else if (orb.phase === 'falling') {
+                // Fade out during falling phase (0.5 seconds)
+                const fallingAge = currentTime - orb.phaseStartTime;
+                const fallingProgress = Math.min(fallingAge / 500, 1); // 500ms falling phase
+                const easeOut = 1 - Math.pow(fallingProgress, 3); // Cubic ease-out (inverted for fade out)
+                easedIntensity = orb.light.intensity * easeOut;
+            }
+            // During 'paused' phase, use full intensity
+            
+            intensities.push(easedIntensity);
+        }
+        
+        return { positions, intensities };
     }
 
     public dispose(): void {
