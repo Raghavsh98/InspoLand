@@ -1,37 +1,52 @@
 import * as THREE from "three";
-import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 
 interface OrbData {
     mesh: THREE.Mesh;
     light: THREE.PointLight;
+    material: THREE.MeshBasicMaterial;
     startTime: number;
     duration: number;
     basePosition: THREE.Vector3;
     targetHeight: number;
     phase: 'rising' | 'paused' | 'falling';
     phaseStartTime: number;
+    isHovered: boolean;
+    targetOpacity: number;
+    currentOpacity: number;
 }
 
 export class OrbSystem {
     private scene: THREE.Scene;
     private camera: THREE.Camera;
     private terrainMesh: THREE.Mesh;
-    private sampler: MeshSurfaceSampler;
     private orbs: OrbData[] = [];
     private lastSpawnTime: number = 0;
     private spawnInterval: number = 5000; // 5 seconds in milliseconds
     private maxOrbs: number = 2;
     private orbMaterial: THREE.MeshBasicMaterial;
+    private raycaster = new THREE.Raycaster();
+    private mouse = new THREE.Vector2();
+    private canvas: HTMLCanvasElement;
+    
+    // Handpicked spawn locations
+    private spawnPoints: THREE.Vector3[] = [
+        new THREE.Vector3(8.30, 1.11, -8.60),
+        new THREE.Vector3(17.42, 2.70, -1.47),
+        new THREE.Vector3(11.64, 1.05, -12.90),
+        new THREE.Vector3(11.03, 4.54, 9.40),
+        new THREE.Vector3(6.71, 4.32, 5.33),
+        new THREE.Vector3(2.33, 3.19, -14.05),
+        new THREE.Vector3(17.32, 3.36, 2.43),
+        new THREE.Vector3(7.93, 1.75, -13.34)
+    ];
 
-    constructor(scene: THREE.Scene, camera: THREE.Camera, terrainMesh: THREE.Mesh) {
+    constructor(scene: THREE.Scene, camera: THREE.Camera, terrainMesh: THREE.Mesh, canvas: HTMLCanvasElement) {
         this.scene = scene;
         this.camera = camera;
         this.terrainMesh = terrainMesh;
+        this.canvas = canvas;
         
-        // Create sampler for terrain surface
-        this.sampler = new MeshSurfaceSampler(terrainMesh).build();
-        
-        // Create orb material - off-white, emissive, semi-transparent
+        // Create orb material template - off-white, emissive, 80% opacity
         this.orbMaterial = new THREE.MeshBasicMaterial({
             color: 0xf5f5f0, // Off-white color
             emissive: 0xf5f5f0,
@@ -39,6 +54,9 @@ export class OrbSystem {
             transparent: true,
             opacity: 0.8
         });
+
+        // Set up mouse tracking for hover effects
+        this.setupMouseTracking();
     }
 
     public update(currentTime: number): void {
@@ -47,6 +65,9 @@ export class OrbSystem {
             this.spawnOrbs(currentTime);
             this.lastSpawnTime = currentTime;
         }
+
+        // Update hover detection
+        this.updateHoverDetection();
 
         // Update existing orbs
         for (let i = this.orbs.length - 1; i >= 0; i--) {
@@ -61,6 +82,7 @@ export class OrbSystem {
 
             this.updateOrbAnimation(orb, currentTime);
             this.updateOrbSize(orb);
+            this.updateOrbOpacity(orb);
         }
     }
 
@@ -74,19 +96,16 @@ export class OrbSystem {
     }
 
     private createOrb(currentTime: number): void {
-        // Sample random position on terrain surface
-        const position = new THREE.Vector3();
-        const normal = new THREE.Vector3();
-        this.sampler.sample(position, normal);
+        // Pick a random spawn point from the predefined locations
+        const randomIndex = Math.floor(Math.random() * this.spawnPoints.length);
+        const position = this.spawnPoints[randomIndex].clone();
 
-        // Check if position is visible from camera (basic frustum check)
-        if (!this.isPositionVisible(position)) {
-            return; // Skip this orb if not visible
-        }
+        // Create individual material for this orb (to avoid shared material issues)
+        const material = this.orbMaterial.clone();
 
-        // Create orb geometry and mesh
-        const geometry = new THREE.SphereGeometry(1, 16, 16);
-        const mesh = new THREE.Mesh(geometry, this.orbMaterial);
+        // Create orb geometry and mesh with higher quality (32x32 segments for smoother spheres)
+        const geometry = new THREE.SphereGeometry(1, 32, 32);
+        const mesh = new THREE.Mesh(geometry, material);
         mesh.position.copy(position);
 
         // Create point light for glow effect - off-white light
@@ -101,12 +120,16 @@ export class OrbSystem {
         const orbData: OrbData = {
             mesh,
             light,
+            material,
             startTime: currentTime,
-            duration: 3000, // 3 seconds total
+            duration: 3100, // 3.1 seconds total (100ms more)
             basePosition: position.clone(),
             targetHeight: 1.0, // Rise 1 unit
             phase: 'rising',
-            phaseStartTime: currentTime
+            phaseStartTime: currentTime,
+            isHovered: false,
+            targetOpacity: 0.8,
+            currentOpacity: 0.8
         };
 
         this.orbs.push(orbData);
@@ -146,18 +169,22 @@ export class OrbSystem {
                 break;
                 
             case 'falling':
-                // Falling phase: 0.5 seconds with ease-in
+                // Falling phase: 0.5 seconds with ease-in, going 0.5 units below ground
                 const fallingDuration = 500; // 0.5 seconds
                 const fallProgress = Math.min(phaseAge / fallingDuration, 1);
                 const easedFallProgress = fallProgress * fallProgress * fallProgress; // Cubic ease-in
-                const currentHeight = orb.basePosition.y + orb.targetHeight - (orb.targetHeight * easedFallProgress);
+                
+                // Calculate target depth (0.5 units below ground level)
+                const groundLevel = orb.basePosition.y;
+                const targetDepth = groundLevel - 0.5;
+                const totalFallDistance = orb.targetHeight + 0.5; // From peak to 0.5 units below ground
+                
+                const currentHeight = orb.basePosition.y + orb.targetHeight - (totalFallDistance * easedFallProgress);
                 orb.mesh.position.y = currentHeight;
                 orb.light.position.y = currentHeight;
                 
-                // Also fade out during falling
-                const opacity = 0.8 * (1 - easedFallProgress);
-                (orb.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
-                orb.light.intensity = 2 * (1 - easedFallProgress);
+                // Keep full opacity and light intensity throughout falling
+                // Orb will be removed completely when duration expires
                 break;
         }
     }
@@ -167,22 +194,61 @@ export class OrbSystem {
         const distance = orb.mesh.position.distanceTo(this.camera.position);
         
         // Scale based on distance (closer = larger)
-        // Base size of 2.0, scale inversely with distance
-        const baseSize = 2.0;
+        // Base size reduced to 80% (1.6 instead of 2.0)
+        const baseSize = 1.6;
         const scaleFactor = Math.max(0.3, baseSize / (distance * 0.1));
         
         orb.mesh.scale.setScalar(scaleFactor);
     }
 
-    private isPositionVisible(position: THREE.Vector3): boolean {
-        // Simple frustum culling - check if position is roughly in view
-        // This is a basic implementation, could be improved with proper frustum checking
-        const cameraPosition = this.camera.position;
-        const distance = position.distanceTo(cameraPosition);
-        
-        // Only spawn orbs within reasonable distance (visible range)
-        return distance < 50 && distance > 5;
+    private setupMouseTracking(): void {
+        this.canvas.addEventListener('mousemove', (event) => {
+            // Update mouse position
+            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
     }
+
+    private updateHoverDetection(): void {
+        // Update raycaster
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        
+        // Get all orb meshes
+        const orbMeshes = this.orbs.map(orb => orb.mesh);
+        
+        // Check for intersections
+        const intersects = this.raycaster.intersectObjects(orbMeshes);
+        
+        // Reset all hover states
+        this.orbs.forEach(orb => {
+            orb.isHovered = false;
+            orb.targetOpacity = 0.8; // Default opacity
+        });
+        
+        // Set hovered state for intersected orbs
+        if (intersects.length > 0) {
+            const hoveredMesh = intersects[0].object;
+            const hoveredOrb = this.orbs.find(orb => orb.mesh === hoveredMesh);
+            if (hoveredOrb) {
+                hoveredOrb.isHovered = true;
+                hoveredOrb.targetOpacity = 1.0; // Full opacity on hover
+            }
+        }
+    }
+
+    private updateOrbOpacity(orb: OrbData): void {
+        // Smooth opacity transition with ease-out curve
+        const opacityDiff = orb.targetOpacity - orb.currentOpacity;
+        const easeSpeed = 0.1; // Adjust for faster/slower transitions
+        
+        // Ease-out calculation
+        orb.currentOpacity += opacityDiff * easeSpeed;
+        
+        // Apply opacity to material
+        orb.material.opacity = orb.currentOpacity;
+    }
+
+
 
     private removeOrb(index: number): void {
         const orb = this.orbs[index];

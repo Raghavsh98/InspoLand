@@ -40,6 +40,8 @@ export class FluffyGrass {
 	private grassMaterial: GrassMaterial;
 	private grassCount = 8000;
 	private orbSystem: OrbSystem;
+	private raycaster = new THREE.Raycaster();
+	private mouse = new THREE.Vector2();
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -220,7 +222,7 @@ export class FluffyGrass {
 				this.addGrass(terrainMesh, this.grassGeometry);
 				
 				// Initialize orb system after terrain is loaded
-				this.orbSystem = new OrbSystem(this.scene, this.camera, terrainMesh);
+				this.orbSystem = new OrbSystem(this.scene, this.camera, terrainMesh, this.canvas);
 			});
 		});
 
@@ -266,7 +268,7 @@ export class FluffyGrass {
 		guiContainer.style.top = "0";
 		guiContainer.style.left = "0";
 		guiContainer.style.right = "auto";
-		guiContainer.style.display = "block";
+		guiContainer.style.display = "none"; // Hide the controls
 
 		this.sceneGUI = this.gui.addFolder("Scene Properties");
 		this.sceneGUI.add(this.orbitControls, "autoRotate").name("Auto Rotate");
@@ -302,6 +304,10 @@ export class FluffyGrass {
 			console.log(this.renderer.info.render);
 		});
 
+		// Mouse tracking for coordinate picking
+		this.canvas.addEventListener("mousemove", (event) => this.onMouseMove(event), false);
+		this.canvas.addEventListener("click", (event) => this.onMouseClick(event), false);
+
 		// const randomizeGrassColor = document.querySelector(
 		// 	".randomizeButton"
 		// ) as HTMLButtonElement;
@@ -330,6 +336,69 @@ export class FluffyGrass {
 			cameraX.textContent = this.camera.position.x.toFixed(2);
 			cameraY.textContent = this.camera.position.y.toFixed(2);
 			cameraZ.textContent = this.camera.position.z.toFixed(2);
+		}
+	}
+
+	private onMouseMove(event: MouseEvent) {
+		// Calculate mouse position in normalized device coordinates
+		this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+		this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+		
+		// Update the picking ray with the camera and mouse position
+		this.raycaster.setFromCamera(this.mouse, this.camera);
+		
+		// Calculate objects intersecting the picking ray
+		const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+		
+		if (intersects.length > 0) {
+			const intersect = intersects[0];
+			const point = intersect.point;
+			
+			// Update mouse coordinate display
+			const mouseX = document.getElementById('mouse-x');
+			const mouseY = document.getElementById('mouse-y');
+			const mouseZ = document.getElementById('mouse-z');
+			
+			if (mouseX && mouseY && mouseZ) {
+				mouseX.textContent = point.x.toFixed(2);
+				mouseY.textContent = point.y.toFixed(2);
+				mouseZ.textContent = point.z.toFixed(2);
+			}
+		}
+	}
+
+	private onMouseClick(event: MouseEvent) {
+		// Calculate mouse position in normalized device coordinates
+		this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+		this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+		
+		// Update the picking ray with the camera and mouse position
+		this.raycaster.setFromCamera(this.mouse, this.camera);
+		
+		// Calculate objects intersecting the picking ray
+		const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+		
+		if (intersects.length > 0) {
+			const intersect = intersects[0];
+			const point = intersect.point;
+			
+			// Copy coordinates to clipboard
+			const coordinates = `new THREE.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`;
+			navigator.clipboard.writeText(coordinates).then(() => {
+				console.log('Coordinates copied to clipboard:', coordinates);
+				
+				// Visual feedback
+				const mousePanel = document.querySelector('.mouse-panel') as HTMLElement;
+				if (mousePanel) {
+					const originalBg = mousePanel.style.backgroundColor;
+					mousePanel.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
+					setTimeout(() => {
+						mousePanel.style.backgroundColor = originalBg;
+					}, 200);
+				}
+			}).catch(() => {
+				console.log('Coordinates (copy manually):', coordinates);
+			});
 		}
 	}
 
