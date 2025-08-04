@@ -39,15 +39,42 @@ export class OrbSystem {
     
     // Handpicked spawn locations
     private spawnPoints: THREE.Vector3[] = [
-        new THREE.Vector3(8.30, 1.11, -8.60),
-        new THREE.Vector3(17.42, 2.70, -1.47),
-        new THREE.Vector3(11.64, 1.05, -12.90),
-        new THREE.Vector3(11.03, 4.54, 9.40),
-        new THREE.Vector3(6.71, 4.32, 5.33),
-        new THREE.Vector3(2.33, 3.19, -14.05),
-        new THREE.Vector3(17.32, 3.36, 2.43),
-        new THREE.Vector3(7.93, 1.75, -13.34)
+        new THREE.Vector3(8.30, 1.11, -8.60),   // #1
+        new THREE.Vector3(17.42, 2.70, -1.47),  // #2
+        new THREE.Vector3(11.64, 1.05, -12.90), // #3
+        new THREE.Vector3(11.03, 4.54, 9.40),   // #4
+        new THREE.Vector3(6.71, 4.32, 5.33),    // #5
+        new THREE.Vector3(2.33, 3.19, -14.05),  // #6
+        new THREE.Vector3(17.32, 3.36, 2.43),   // #7
+        new THREE.Vector3(7.93, 1.75, -13.34)   // #8
     ];
+
+    // Mobile-specific position for orb #4 (center of screen)
+    private getMobileSpawnPoint(): THREE.Vector3 {
+        // Calculate center of screen in world coordinates
+        const camera = this.camera as THREE.PerspectiveCamera;
+        
+        // Create a raycaster from the center of the screen (0, 0 in normalized coordinates)
+        const centerMouse = new THREE.Vector2(0, 0); // Center of screen
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(centerMouse, camera);
+        
+        // Place orb 8 units in front of camera (good visibility distance)
+        const distance = 8;
+        const centerPosition = raycaster.ray.origin.clone().add(
+            raycaster.ray.direction.clone().multiplyScalar(distance)
+        );
+        
+        // Adjust height to be slightly above ground level for good visibility
+        centerPosition.y = Math.max(centerPosition.y, 2.5);
+        
+        return centerPosition;
+    }
+
+    private isMobileScreen(): boolean {
+        // Check for phone screens (max width 768px)
+        return window.innerWidth <= 768;
+    }
 
     constructor(scene: THREE.Scene, camera: THREE.Camera, terrainMesh: THREE.Mesh, canvas: HTMLCanvasElement) {
         this.scene = scene;
@@ -105,28 +132,36 @@ export class OrbSystem {
     }
 
     private spawnOrbs(currentTime: number): void {
-        // Only spawn if we have less than max orbs
-        const orbsToSpawn = Math.min(2, this.maxOrbs - this.orbs.length);
-        
-        // Pick unique spawn points for all orbs to be spawned
-        const availableSpawnPoints = [...this.spawnPoints]; // Copy the array
-        const selectedPositions: THREE.Vector3[] = [];
-        
-        for (let i = 0; i < orbsToSpawn; i++) {
-            // Pick a random spawn point from remaining available points
-            const randomIndex = Math.floor(Math.random() * availableSpawnPoints.length);
-            const selectedPosition = availableSpawnPoints[randomIndex].clone();
-            selectedPositions.push(selectedPosition);
+        if (this.isMobileScreen()) {
+            // Mobile: only spawn one orb (#4) at center position
+            if (this.orbs.length === 0) {
+                const mobilePosition = this.getMobileSpawnPoint();
+                this.createOrb(currentTime, 0, mobilePosition);
+            }
+        } else {
+            // Desktop: original logic with multiple orbs
+            const orbsToSpawn = Math.min(2, this.maxOrbs - this.orbs.length);
             
-            // Remove this spawn point from available options to ensure uniqueness
-            availableSpawnPoints.splice(randomIndex, 1);
-        }
-        
-        // Create orbs with their assigned unique positions
-        for (let i = 0; i < orbsToSpawn; i++) {
-            // Apply 0.5s delay to the second orb
-            const delay = i * 500; // 0ms for first orb, 500ms for second orb
-            this.createOrb(currentTime, delay, selectedPositions[i]);
+            // Pick unique spawn points for all orbs to be spawned
+            const availableSpawnPoints = [...this.spawnPoints]; // Copy the array
+            const selectedPositions: THREE.Vector3[] = [];
+            
+            for (let i = 0; i < orbsToSpawn; i++) {
+                // Pick a random spawn point from remaining available points
+                const randomIndex = Math.floor(Math.random() * availableSpawnPoints.length);
+                const selectedPosition = availableSpawnPoints[randomIndex].clone();
+                selectedPositions.push(selectedPosition);
+                
+                // Remove this spawn point from available options to ensure uniqueness
+                availableSpawnPoints.splice(randomIndex, 1);
+            }
+            
+            // Create orbs with their assigned unique positions
+            for (let i = 0; i < orbsToSpawn; i++) {
+                // Apply 0.5s delay to the second orb
+                const delay = i * 500; // 0ms for first orb, 500ms for second orb
+                this.createOrb(currentTime, delay, selectedPositions[i]);
+            }
         }
     }
 
@@ -223,13 +258,25 @@ export class OrbSystem {
                 break;
                 
             case 'falling':
-                // Falling phase: 0.8 seconds with ease-in, going 1.5 units below ground
+                // Falling phase: 0.8 seconds with ease-in, going deeper for special orbs
                 const fallingDuration = 800; // 0.8 seconds (increased from 0.5)
                 const fallProgress = Math.min(phaseAge / fallingDuration, 1);
                 const easedFallProgress = fallProgress * fallProgress * fallProgress; // Cubic ease-in
                 
-                // Calculate target depth (1.5 units below ground level - deeper than before)
-                const totalFallDistance = orb.targetHeight + 1.5; // From peak to 1.5 units below ground
+                // Check if this orb needs deeper sinking (orbs #2 and #7, or mobile orb)
+                const needsDeeperSink = this.isOrbAtSpecialPosition(orb.basePosition);
+                const isMobileOrb = this.isMobileScreen();
+                
+                let sinkDepth = 1.5; // Default depth
+                if (needsDeeperSink) {
+                    sinkDepth = 3.0; // Special desktop orbs sink 3 units
+                }
+                if (isMobileOrb) {
+                    sinkDepth += 5.0; // Mobile orbs sink 5 extra units deeper
+                }
+                
+                // Calculate target depth
+                const totalFallDistance = orb.targetHeight + sinkDepth; // From peak to specified depth below ground
                 
                 const currentHeight = orb.basePosition.y + orb.targetHeight - (totalFallDistance * easedFallProgress);
                 orb.mesh.position.y = currentHeight;
@@ -239,6 +286,21 @@ export class OrbSystem {
                 // Orb will be removed completely when duration expires
                 break;
         }
+    }
+
+    private isOrbAtSpecialPosition(position: THREE.Vector3): boolean {
+        // Check if orb is at position #2 (17.42, 2.70, -1.47) or #7 (17.32, 3.36, 2.43)
+        const tolerance = 0.1; // Small tolerance for floating point comparison
+        
+        const isOrb2 = Math.abs(position.x - 17.42) < tolerance && 
+                       Math.abs(position.y - 2.70) < tolerance && 
+                       Math.abs(position.z - (-1.47)) < tolerance;
+                       
+        const isOrb7 = Math.abs(position.x - 17.32) < tolerance && 
+                       Math.abs(position.y - 3.36) < tolerance && 
+                       Math.abs(position.z - 2.43) < tolerance;
+                       
+        return isOrb2 || isOrb7;
     }
 
     private updateOrbSize(orb: OrbData): void {

@@ -40,8 +40,7 @@ export class FluffyGrass {
 	private grassMaterial: GrassMaterial;
 	private grassCount = 8000;
 	private orbSystem: OrbSystem;
-	private raycaster = new THREE.Raycaster();
-	private mouse = new THREE.Vector2();
+
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -66,7 +65,8 @@ export class FluffyGrass {
 		this.camera.position.set(21.43, 4.51, -7.31);
 		this.scene = new THREE.Scene();
 
-		this.scene.background = new THREE.Color(this.sceneProps.fogColor);
+		// Create gradient sky background
+		this.scene.background = this.createGradientSky();
 		this.scene.fog = new THREE.FogExp2(
 			this.sceneProps.fogColor,
 			this.sceneProps.fogDensity
@@ -102,6 +102,33 @@ export class FluffyGrass {
 		});
 
 		this.init();
+	}
+
+	private createGradientSky(): THREE.Texture {
+		const canvas = document.createElement('canvas');
+		canvas.width = 1;
+		canvas.height = 512; // Higher resolution for smooth gradient
+		
+		const ctx = canvas.getContext('2d')!;
+		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		
+		// Top 5% - #eeeeee (light grey)
+		gradient.addColorStop(0, '#eeeeee');
+		gradient.addColorStop(0.05, '#eeeeee');
+		
+		// Next 50% - #5f98e2 (sky blue) 
+		gradient.addColorStop(0.55, '#5f98e2');
+		
+		// Next 40% - #cd664b (warm terracotta)
+		gradient.addColorStop(1, '#cd664b');
+		
+		ctx.fillStyle = gradient;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		
+		const texture = new THREE.CanvasTexture(canvas);
+		texture.needsUpdate = true;
+		
+		return texture;
 	}
 
 	private init() {
@@ -283,7 +310,7 @@ export class FluffyGrass {
 			});
 		this.sceneGUI.addColor(this.sceneProps, "fogColor").onChange((value) => {
 			this.scene.fog?.color.set(value);
-			this.scene.background = new THREE.Color(value);
+			// Keep gradient sky background unchanged
 		});
 
 		this.grassMaterial.setupGUI(this.sceneGUI);
@@ -309,9 +336,7 @@ export class FluffyGrass {
 		// 	console.log(this.renderer.info.render);
 		// });
 
-		// Mouse tracking for coordinate picking
-		this.canvas.addEventListener("mousemove", (event) => this.onMouseMove(event), false);
-		this.canvas.addEventListener("click", (event) => this.onMouseClick(event), false);
+
 
 		// const randomizeGrassColor = document.querySelector(
 		// 	".randomizeButton"
@@ -344,68 +369,9 @@ export class FluffyGrass {
 		}
 	}
 
-	private onMouseMove(event: MouseEvent) {
-		// Calculate mouse position in normalized device coordinates
-		this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-		this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-		
-		// Update the picking ray with the camera and mouse position
-		this.raycaster.setFromCamera(this.mouse, this.camera);
-		
-		// Calculate objects intersecting the picking ray
-		const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-		
-		if (intersects.length > 0) {
-			const intersect = intersects[0];
-			const point = intersect.point;
-			
-			// Update mouse coordinate display
-			const mouseX = document.getElementById('mouse-x');
-			const mouseY = document.getElementById('mouse-y');
-			const mouseZ = document.getElementById('mouse-z');
-			
-			if (mouseX && mouseY && mouseZ) {
-				mouseX.textContent = point.x.toFixed(2);
-				mouseY.textContent = point.y.toFixed(2);
-				mouseZ.textContent = point.z.toFixed(2);
-			}
-		}
-	}
 
-	private onMouseClick(event: MouseEvent) {
-		// Calculate mouse position in normalized device coordinates
-		this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-		this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-		
-		// Update the picking ray with the camera and mouse position
-		this.raycaster.setFromCamera(this.mouse, this.camera);
-		
-		// Calculate objects intersecting the picking ray
-		const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-		
-		if (intersects.length > 0) {
-			const intersect = intersects[0];
-			const point = intersect.point;
-			
-			// Copy coordinates to clipboard
-			const coordinates = `new THREE.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`;
-			navigator.clipboard.writeText(coordinates).then(() => {
-				console.log('Coordinates copied to clipboard:', coordinates);
-				
-				// Visual feedback
-				const mousePanel = document.querySelector('.mouse-panel') as HTMLElement;
-				if (mousePanel) {
-					const originalBg = mousePanel.style.backgroundColor;
-					mousePanel.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
-					setTimeout(() => {
-						mousePanel.style.backgroundColor = originalBg;
-					}, 200);
-				}
-			}).catch(() => {
-				console.log('Coordinates (copy manually):', coordinates);
-			});
-		}
-	}
+
+
 
 	private randomizeGrassColor() {
 		const randomTipColorGenerator = () => {
