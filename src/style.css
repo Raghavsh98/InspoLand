@@ -92,3 +92,42 @@ nav a img{
   background-color: #000000;
   opacity: 0.7;
 }
+
+.camera-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-panel h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.coordinate {
+  display: flex;
+  justify-content: space-between;
+  margin: 5px 0;
+  min-width: 120px;
+}
+
+.coordinate span:first-child {
+  color: #cccccc;
+  margin-right: 10px;
+}
+
+.coordinate span:last-child {
+  color: #ffffff;
+  font-weight: 600;
+}

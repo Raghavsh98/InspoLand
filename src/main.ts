@@ -24,7 +24,7 @@ export class FluffyGrass {
 	private sceneProps = {
 		fogColor: "#eeeeee",
 		terrainColor: "#5e875e",
-		fogDensity: 0.02,
+		fogDensity: 0.023934,
 	};
 	private textures: { [key: string]: THREE.Texture } = {};
 
@@ -59,7 +59,7 @@ export class FluffyGrass {
 			0.1,
 			1000
 		);
-		this.camera.position.set(-17, 12, -10);
+		this.camera.position.set(21.43, 4.51, -7.31);
 		this.scene = new THREE.Scene();
 
 		this.scene.background = new THREE.Color(this.sceneProps.fogColor);
@@ -84,9 +84,13 @@ export class FluffyGrass {
 		this.scene.frustumCulled = true;
 
 		this.orbitControls = new OrbitControls(this.camera, canvas);
-		this.orbitControls.autoRotate = true;
+		this.orbitControls.autoRotate = false;
 		this.orbitControls.autoRotateSpeed = -0.5;
 		this.orbitControls.enableDamping = true;
+		// Disable mouse controls by default
+		this.orbitControls.enablePan = false;
+		this.orbitControls.enableRotate = false;
+		this.orbitControls.enableZoom = false;
 
 		this.grassMaterial = new GrassMaterial();
 		this.terrainMat = new THREE.MeshPhongMaterial({
@@ -215,20 +219,7 @@ export class FluffyGrass {
 			});
 		});
 
-		const material = new THREE.MeshPhongMaterial({ color: 0x333333 });
 
-		this.gltfLoader.load("/fluffy_grass_text.glb", (gltf) => {
-			gltf.scene.traverse((child) => {
-				if (child instanceof THREE.Mesh) {
-					child.material = material;
-					child.geometry.scale(3, 3, 3);
-					child.position.y += 0.5;
-					child.castShadow = true;
-					child.receiveShadow = true;
-				}
-			});
-			this.scene.add(gltf.scene);
-		});
 	}
 
 	public render() {
@@ -237,6 +228,7 @@ export class FluffyGrass {
 		this.renderer.render(this.scene, this.camera);
 		// this.postProcessingManager.update();
 		this.stats.update();
+		this.updateCameraPosition();
 		requestAnimationFrame(() => this.render());
 		this.orbitControls.update();
 	}
@@ -316,6 +308,18 @@ export class FluffyGrass {
 		// 	window.innerWidth,
 		// 	window.innerHeight,
 		// );
+	}
+
+	private updateCameraPosition() {
+		const cameraX = document.getElementById('camera-x');
+		const cameraY = document.getElementById('camera-y');
+		const cameraZ = document.getElementById('camera-z');
+		
+		if (cameraX && cameraY && cameraZ) {
+			cameraX.textContent = this.camera.position.x.toFixed(2);
+			cameraY.textContent = this.camera.position.y.toFixed(2);
+			cameraZ.textContent = this.camera.position.z.toFixed(2);
+		}
 	}
 
 	private randomizeGrassColor() {

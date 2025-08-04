@@ -26,16 +26,24 @@
 </head>
 
 <body>
-  <nav>
-    <a href="https://github.com/thebenezer/FluffyGrass">
-      <img src="/github-mark.svg" alt="GitHub" />
-    </a>
-  </nav>
-  <div class="credits">
-    <p>Created by <a href="https://twitter.com/th_ebenezer">thebenezer</a></p>
-  </div>
+
   <canvas id="canvas"></canvas>
   <!-- <button class="randomizeButton">Randomize</button> -->
+  <div class="camera-panel">
+    <h3>Camera Position</h3>
+    <div class="coordinate">
+      <span>X:</span>
+      <span id="camera-x">0.00</span>
+    </div>
+    <div class="coordinate">
+      <span>Y:</span>
+      <span id="camera-y">0.00</span>
+    </div>
+    <div class="coordinate">
+      <span>Z:</span>
+      <span id="camera-z">0.00</span>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 
