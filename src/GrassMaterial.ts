@@ -265,7 +265,7 @@ export class GrassMaterial {
         // Orb 1
         if(uOrbIntensity1 > 0.0) {
           float dist1 = distance(vWorldPosition, uOrbPosition1);
-          float falloff1 = 1.0 / (1.0 + dist1 * dist1 * 0.05);
+          float falloff1 = 1.0 / (1.0 + dist1 * dist1 * 0.2); // Changed from 0.1 to 0.2 (4x stronger falloff than original)
           falloff1 = smoothstep(0.0, 1.0, falloff1);
           orbGlow += vec3(0.96, 0.96, 0.94) * uOrbIntensity1 * falloff1 * 0.1;
         }
@@ -273,7 +273,7 @@ export class GrassMaterial {
         // Orb 2
         if(uOrbIntensity2 > 0.0) {
           float dist2 = distance(vWorldPosition, uOrbPosition2);
-          float falloff2 = 1.0 / (1.0 + dist2 * dist2 * 0.05);
+          float falloff2 = 1.0 / (1.0 + dist2 * dist2 * 0.2); // Changed from 0.1 to 0.2 (4x stronger falloff than original)
           falloff2 = smoothstep(0.0, 1.0, falloff2);
           orbGlow += vec3(0.96, 0.96, 0.94) * uOrbIntensity2 * falloff2 * 0.1;
         }
