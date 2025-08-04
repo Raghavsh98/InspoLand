@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { inspirationLinks, LinkData } from "./links";
 
 interface OrbData {
     mesh: THREE.Mesh;
@@ -13,6 +14,13 @@ interface OrbData {
     isHovered: boolean;
     targetOpacity: number;
     currentOpacity: number;
+    targetScale: number;
+    currentScale: number;
+    targetLuminosity: number;
+    currentLuminosity: number;
+    baseLightIntensity: number;
+    linkData: LinkData;
+    isClicked: boolean;
 }
 
 export class OrbSystem {
@@ -27,6 +35,7 @@ export class OrbSystem {
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
     private canvas: HTMLCanvasElement;
+    private usedLinks: Set<number> = new Set(); // Track used link indices
     
     // Handpicked spawn locations
     private spawnPoints: THREE.Vector3[] = [
@@ -46,11 +55,9 @@ export class OrbSystem {
         this.terrainMesh = terrainMesh;
         this.canvas = canvas;
         
-        // Create orb material template - off-white, emissive, 80% opacity
+        // Create orb material template - off-white, 80% opacity
         this.orbMaterial = new THREE.MeshBasicMaterial({
-            color: 0xf5f5f0, // Off-white color
-            emissive: 0xf5f5f0,
-            emissiveIntensity: 0.5,
+            color: 0xf5f5f0, // Off-white color (MeshBasicMaterial doesn't support emissive)
             transparent: true,
             opacity: 0.8
         });
@@ -74,6 +81,17 @@ export class OrbSystem {
             const orb = this.orbs[i];
             const orbAge = currentTime - orb.startTime;
             
+            // If orb hasn't started yet, hide it and skip updates
+            if (orbAge < 0) {
+                orb.mesh.visible = false;
+                orb.light.visible = false;
+                continue;
+            }
+            
+            // Make sure orb is visible once it starts
+            orb.mesh.visible = true;
+            orb.light.visible = true;
+            
             if (orbAge >= orb.duration) {
                 // Remove expired orb
                 this.removeOrb(i);
@@ -82,7 +100,7 @@ export class OrbSystem {
 
             this.updateOrbAnimation(orb, currentTime);
             this.updateOrbSize(orb);
-            this.updateOrbOpacity(orb);
+            this.updateOrbVisualEffects(orb);
         }
     }
 
@@ -90,15 +108,34 @@ export class OrbSystem {
         // Only spawn if we have less than max orbs
         const orbsToSpawn = Math.min(2, this.maxOrbs - this.orbs.length);
         
+        // Pick unique spawn points for all orbs to be spawned
+        const availableSpawnPoints = [...this.spawnPoints]; // Copy the array
+        const selectedPositions: THREE.Vector3[] = [];
+        
         for (let i = 0; i < orbsToSpawn; i++) {
-            this.createOrb(currentTime);
+            // Pick a random spawn point from remaining available points
+            const randomIndex = Math.floor(Math.random() * availableSpawnPoints.length);
+            const selectedPosition = availableSpawnPoints[randomIndex].clone();
+            selectedPositions.push(selectedPosition);
+            
+            // Remove this spawn point from available options to ensure uniqueness
+            availableSpawnPoints.splice(randomIndex, 1);
+        }
+        
+        // Create orbs with their assigned unique positions
+        for (let i = 0; i < orbsToSpawn; i++) {
+            // Apply 0.5s delay to the second orb
+            const delay = i * 500; // 0ms for first orb, 500ms for second orb
+            this.createOrb(currentTime, delay, selectedPositions[i]);
         }
     }
 
-    private createOrb(currentTime: number): void {
-        // Pick a random spawn point from the predefined locations
-        const randomIndex = Math.floor(Math.random() * this.spawnPoints.length);
-        const position = this.spawnPoints[randomIndex].clone();
+    private createOrb(currentTime: number, delay: number = 0, position?: THREE.Vector3): void {
+        // Use provided position or pick a random spawn point as fallback
+        if (!position) {
+            const randomIndex = Math.floor(Math.random() * this.spawnPoints.length);
+            position = this.spawnPoints[randomIndex].clone();
+        }
 
         // Create individual material for this orb (to avoid shared material issues)
         const material = this.orbMaterial.clone();
@@ -115,21 +152,38 @@ export class OrbSystem {
         // Add to scene
         this.scene.add(mesh);
         this.scene.add(light);
+        
+        // Hide orb initially if it has a delay
+        if (delay > 0) {
+            mesh.visible = false;
+            light.visible = false;
+        }
 
-        // Store orb data
+        // Assign a random link to this orb
+        const linkData = this.getRandomLink();
+
+        // Store orb data with delayed start time
+        const delayedStartTime = currentTime + delay;
         const orbData: OrbData = {
             mesh,
             light,
             material,
-            startTime: currentTime,
-            duration: 3100, // 3.1 seconds total (100ms more)
+            startTime: delayedStartTime,
+            duration: 3800, // 3.8 seconds total (0.5s rising + 2s paused + 0.8s falling + 0.5s buffer)
             basePosition: position.clone(),
             targetHeight: 1.0, // Rise 1 unit
             phase: 'rising',
-            phaseStartTime: currentTime,
+            phaseStartTime: delayedStartTime,
             isHovered: false,
             targetOpacity: 0.8,
-            currentOpacity: 0.8
+            currentOpacity: 0.8,
+            targetScale: 1.0,
+            currentScale: 1.0,
+            targetLuminosity: 1.0,
+            currentLuminosity: 1.0,
+            baseLightIntensity: 50, // Store the base light intensity
+            linkData: linkData,
+            isClicked: false
         };
 
         this.orbs.push(orbData);
@@ -169,15 +223,13 @@ export class OrbSystem {
                 break;
                 
             case 'falling':
-                // Falling phase: 0.5 seconds with ease-in, going 0.5 units below ground
-                const fallingDuration = 500; // 0.5 seconds
+                // Falling phase: 0.8 seconds with ease-in, going 1.5 units below ground
+                const fallingDuration = 800; // 0.8 seconds (increased from 0.5)
                 const fallProgress = Math.min(phaseAge / fallingDuration, 1);
                 const easedFallProgress = fallProgress * fallProgress * fallProgress; // Cubic ease-in
                 
-                // Calculate target depth (0.5 units below ground level)
-                const groundLevel = orb.basePosition.y;
-                const targetDepth = groundLevel - 0.5;
-                const totalFallDistance = orb.targetHeight + 0.5; // From peak to 0.5 units below ground
+                // Calculate target depth (1.5 units below ground level - deeper than before)
+                const totalFallDistance = orb.targetHeight + 1.5; // From peak to 1.5 units below ground
                 
                 const currentHeight = orb.basePosition.y + orb.targetHeight - (totalFallDistance * easedFallProgress);
                 orb.mesh.position.y = currentHeight;
@@ -196,9 +248,13 @@ export class OrbSystem {
         // Scale based on distance (closer = larger)
         // Base size reduced to 80% (1.6 instead of 2.0)
         const baseSize = 1.6;
-        const scaleFactor = Math.max(0.3, baseSize / (distance * 0.1));
+        const distanceScaleFactor = Math.max(0.3, baseSize / (distance * 0.1));
         
-        orb.mesh.scale.setScalar(scaleFactor);
+        // Apply hover scale multiplier if it exists
+        const hoverScale = orb.mesh.userData.hoverScale || 1.0;
+        const finalScale = distanceScaleFactor * hoverScale;
+        
+        orb.mesh.scale.setScalar(finalScale);
     }
 
     private setupMouseTracking(): void {
@@ -207,14 +263,18 @@ export class OrbSystem {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         });
+
+        this.canvas.addEventListener('click', (event) => {
+            this.onOrbClick(event);
+        });
     }
 
     private updateHoverDetection(): void {
         // Update raycaster
         this.raycaster.setFromCamera(this.mouse, this.camera);
         
-        // Get all orb meshes
-        const orbMeshes = this.orbs.map(orb => orb.mesh);
+        // Get all visible orb meshes (exclude orbs that haven't started yet)
+        const orbMeshes = this.orbs.filter(orb => orb.mesh.visible).map(orb => orb.mesh);
         
         // Check for intersections
         const intersects = this.raycaster.intersectObjects(orbMeshes);
@@ -223,6 +283,8 @@ export class OrbSystem {
         this.orbs.forEach(orb => {
             orb.isHovered = false;
             orb.targetOpacity = 0.8; // Default opacity
+            orb.targetScale = 1.0; // Default scale
+            orb.targetLuminosity = 1.0; // Default luminosity
         });
         
         // Set hovered state for intersected orbs
@@ -232,26 +294,125 @@ export class OrbSystem {
             if (hoveredOrb) {
                 hoveredOrb.isHovered = true;
                 hoveredOrb.targetOpacity = 1.0; // Full opacity on hover
+                hoveredOrb.targetScale = 0.95; // Scale down to 95% on hover
+                hoveredOrb.targetLuminosity = 1.8; // Increase brightness to 180% on hover
+                
+                // Change cursor to pointer
+                this.canvas.style.cursor = 'pointer';
             }
+        } else {
+            // Reset cursor to default
+            this.canvas.style.cursor = 'default';
         }
     }
 
-    private updateOrbOpacity(orb: OrbData): void {
+    private updateOrbVisualEffects(orb: OrbData): void {
         // Smooth opacity transition with ease-out curve
         const opacityDiff = orb.targetOpacity - orb.currentOpacity;
         const easeSpeed = 0.1; // Adjust for faster/slower transitions
         
-        // Ease-out calculation
+        // Ease-out calculation for opacity
         orb.currentOpacity += opacityDiff * easeSpeed;
         
         // Apply opacity to material
         orb.material.opacity = orb.currentOpacity;
+        
+        // Smooth scale transition with ease-out curve  
+        const scaleDiff = orb.targetScale - orb.currentScale;
+        const scaleEaseSpeed = 0.15; // Slightly faster for more responsive feel
+        
+        // Ease-out calculation for scale
+        orb.currentScale += scaleDiff * scaleEaseSpeed;
+        
+        // Apply the hover scale effect (this gets combined with distance-based scaling in updateOrbSize)
+        // Store the hover scale multiplier for use in updateOrbSize
+        orb.mesh.userData.hoverScale = orb.currentScale;
+        
+        // Smooth luminosity transition with ease-out curve
+        const luminosityDiff = orb.targetLuminosity - orb.currentLuminosity;
+        const luminosityEaseSpeed = 0.12; // Smooth but responsive luminosity changes
+        
+        // Ease-out calculation for luminosity
+        orb.currentLuminosity += luminosityDiff * luminosityEaseSpeed;
+        
+        // Apply luminosity to material color (brighten the base color)
+        const baseColor = 0xf5f5f0; // Original off-white color
+        const brightenedColor = new THREE.Color(baseColor).multiplyScalar(orb.currentLuminosity);
+        orb.material.color.copy(brightenedColor);
+        
+        // Apply luminosity to light intensity
+        orb.light.intensity = orb.baseLightIntensity * orb.currentLuminosity;
+    }
+
+    private onOrbClick(event: MouseEvent): void {
+        // Update mouse position
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        // Update raycaster
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        
+        // Get all visible orb meshes (exclude orbs that haven't started yet)
+        const orbMeshes = this.orbs.filter(orb => orb.mesh.visible).map(orb => orb.mesh);
+        
+        // Check for intersections
+        const intersects = this.raycaster.intersectObjects(orbMeshes);
+        
+        if (intersects.length > 0) {
+            const clickedMesh = intersects[0].object;
+            const clickedOrb = this.orbs.find(orb => orb.mesh === clickedMesh);
+            
+            if (clickedOrb && !clickedOrb.isClicked) {
+                clickedOrb.isClicked = true;
+                
+                // Open URL in new tab
+                window.open(clickedOrb.linkData.url, '_blank');
+                
+                // Quick visual feedback (scale animation)
+                const originalScale = clickedOrb.mesh.scale.clone();
+                clickedOrb.mesh.scale.multiplyScalar(0.8);
+                setTimeout(() => {
+                    clickedOrb.mesh.scale.copy(originalScale);
+                }, 100);
+            }
+        }
+    }
+
+    private getRandomLink(): LinkData {
+        // Get available links (not currently used by active orbs)
+        const availableIndices = [];
+        for (let i = 0; i < inspirationLinks.length; i++) {
+            if (!this.usedLinks.has(i)) {
+                availableIndices.push(i);
+            }
+        }
+        
+        // If all links are used, reset the used set
+        if (availableIndices.length === 0) {
+            this.usedLinks.clear();
+            for (let i = 0; i < inspirationLinks.length; i++) {
+                availableIndices.push(i);
+            }
+        }
+        
+        // Pick random available link
+        const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+        this.usedLinks.add(randomIndex);
+        
+        return inspirationLinks[randomIndex];
     }
 
 
 
     private removeOrb(index: number): void {
         const orb = this.orbs[index];
+        
+        // Remove the link from used set so it can be used again
+        const linkIndex = inspirationLinks.findIndex(link => link.url === orb.linkData.url);
+        if (linkIndex !== -1) {
+            this.usedLinks.delete(linkIndex);
+        }
+        
         this.scene.remove(orb.mesh);
         this.scene.remove(orb.light);
         orb.mesh.geometry.dispose();
@@ -262,7 +423,8 @@ export class OrbSystem {
         const positions: THREE.Vector3[] = [];
         const intensities: number[] = [];
         
-        for (const orb of this.orbs) {
+        // Only include visible orbs in lighting calculations
+        for (const orb of this.orbs.filter(orb => orb.mesh.visible)) {
             positions.push(orb.mesh.position.clone());
             
             // Calculate eased intensity based on orb lifecycle
