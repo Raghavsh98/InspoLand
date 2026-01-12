@@ -45,7 +45,31 @@ export const inspirationLinks: LinkData[] = [
         url: "https://x.com/rsms/status/1634683866773618688"
     },
     {
-        title: "SuprOrdinary, fulfilling rebrands",
-        url: "https://youtu.be/-2uwy4MDZ_M?si=NgEkc562nlJ139vS"
+        title: "Interfaces of Neon Genesis Evangelion",
+        url: "https://www.youtube.com/watch?v=zI2Fme6k-Iw&list=RDzI2Fme6k-Iw"
+    },
+    {
+        title: "RyOS",
+        url: "https://os.ryo.lu/"
+    },
+    {
+        title: "Sunlight Place, by Chloe Yan",
+        url: "https://www.sunlit.place/"
+    },
+    {
+        title: "Dia Browser, onboarding",
+        url: "https://x.com/avstorm/status/1932800037081247788?s=20"
+    },
+    {
+        title: "Beautiful Things, Intdev studio",
+        url: "https://www.beautifulthings.xyz/"
+    },
+    {
+        title: "Susan Kare interview with Soleio",
+        url: "https://www.youtube.com/watch?v=1kcxcVr3Css"
+    },
+    {
+        title: "Wreath, Dance contest winner",
+        url: "https://www.youtube.com/watch?v=HG0MR86U0pw&list=RDHG0MR86U0pw"
     }
 ];
