@@ -76,6 +76,13 @@
   </div>
 
   <script type="module" src="/src/main.ts"></script>
+
+  <script>
+    if (window.self !== window.top) {
+      document.querySelector('.top-left-text').style.display = 'none';
+      document.querySelector('.top-right-text').style.display = 'none';
+    }
+  </script>
   
   <script>
     // Popup functionality
