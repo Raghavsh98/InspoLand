@@ -21,13 +21,17 @@ const DAY_STATE: SkyTransitionState = {
 };
 
 const NIGHT_STATE: SkyTransitionState = {
-	sunDirection: new THREE.Vector3(0.5, -0.14, 0.85).normalize(),
+	sunDirection: new THREE.Vector3(
+		0.5019867794486782,
+		-0.14055629824562993,
+		0.853377525062753
+	).normalize(),
 	directionalLightIntensity: 0.05,
 	directionalLightColor: new THREE.Color("#b8c8ff"),
 	ambientLightIntensity: 0.12,
 	ambientLightColor: new THREE.Color("#1a2a4a"),
 	fogDensity: 0.028,
-	fogColor: new THREE.Color("#091323"),
+	fogColor: new THREE.Color("#02070a"),
 	exposure: 0.35,
 };
 
