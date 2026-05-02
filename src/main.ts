@@ -85,7 +85,7 @@ export class FluffyGrass {
 		this.renderer.setSize(window.innerWidth, window.innerHeight);
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.scene.frustumCulled = true;
-		this.skySystem = new SkySystem(this.scene, this.renderer);
+		this.skySystem = new SkySystem(this.scene, this.renderer, this.camera);
 
 		this.orbitControls = new OrbitControls(this.camera, canvas);
 		this.orbitControls.autoRotate = false;

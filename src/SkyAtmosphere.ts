@@ -49,7 +49,7 @@ varying vec3 vWorldDirection;
 
 void main() {
 	vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-	vWorldDirection = normalize(worldPosition.xyz);
+	vWorldDirection = normalize(position);
 	gl_Position = projectionMatrix * viewMatrix * worldPosition;
 }
 `;
@@ -156,11 +156,6 @@ vec3 getSkyColor(vec3 viewDir, vec3 sunDir) {
 
 	float rayStart = max(atmosphereHit.x, 0.0);
 	float rayEnd = atmosphereHit.y;
-	vec2 groundHit = raySphere(cameraPosition, viewDir, PLANET_RADIUS);
-
-	if (groundHit.x > 0.0) {
-		rayEnd = min(rayEnd, groundHit.x);
-	}
 
 	float rayLength = max(0.0, rayEnd - rayStart);
 	float stepSize = rayLength / float(VIEW_STEPS);
@@ -202,9 +197,7 @@ vec3 getSkyColor(vec3 viewDir, vec3 sunDir) {
 	float sunDisk = smoothstep(0.99955, 0.9999, mu) * smoothstep(-0.02, 0.06, sunDir.y);
 	color += vec3(1.0, 0.82, 0.55) * sunDisk * 24.0;
 
-	float belowHorizon = smoothstep(-0.45, -0.02, viewDir.y + uHorizonOffset);
-	vec3 nightBase = vec3(0.004, 0.009, 0.020);
-	return mix(nightBase, color, belowHorizon);
+	return color;
 }
 
 void main() {
@@ -241,7 +234,9 @@ void main() {
 
 export class SkyAtmosphere {
 	public readonly mesh: THREE.Mesh;
+	public readonly backgroundMesh: THREE.Mesh;
 	public readonly material: THREE.ShaderMaterial;
+	private readonly geometry: THREE.SphereGeometry;
 	private settings: SkyAtmosphereSettings = { ...DEFAULT_SKY_ATMOSPHERE_SETTINGS };
 
 	constructor() {
@@ -275,11 +270,14 @@ export class SkyAtmosphere {
 			},
 		});
 
-		this.mesh = new THREE.Mesh(
-			new THREE.SphereGeometry(5, 64, 32),
-			this.material
-		);
+		this.geometry = new THREE.SphereGeometry(5, 64, 32);
+		this.mesh = new THREE.Mesh(this.geometry, this.material);
 		this.mesh.renderOrder = 0;
+
+		this.backgroundMesh = new THREE.Mesh(this.geometry, this.material);
+		this.backgroundMesh.frustumCulled = false;
+		this.backgroundMesh.renderOrder = -1000;
+		this.backgroundMesh.scale.setScalar(100);
 	}
 
 	public setSunDirection(sunDirection: THREE.Vector3) {
@@ -314,7 +312,7 @@ export class SkyAtmosphere {
 	}
 
 	public dispose() {
-		this.mesh.geometry.dispose();
+		this.geometry.dispose();
 		this.material.dispose();
 	}
 }

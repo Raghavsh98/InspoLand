@@ -78,6 +78,7 @@ export class SkySystem {
 
 	private readonly scene: THREE.Scene;
 	private readonly renderer: THREE.WebGLRenderer;
+	private readonly camera: THREE.Camera;
 	private readonly skyScene = new THREE.Scene();
 	private readonly cubeTarget: THREE.WebGLCubeRenderTarget;
 	private readonly cubeCamera: THREE.CubeCamera;
@@ -89,12 +90,15 @@ export class SkySystem {
 	private guiControllers: dat.GUIController[] = [];
 	private controls: SkyControlValues = this.createControlValues(DAY_STATE);
 
-	constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
+	constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
 		this.scene = scene;
 		this.renderer = renderer;
+		this.camera = camera;
 		this.ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 		this.directionalLight = this.createDirectionalLight();
 
+		this.scene.background = null;
+		this.scene.add(this.atmosphere.backgroundMesh);
 		this.scene.add(this.ambientLight);
 		this.scene.add(this.directionalLight);
 
@@ -130,6 +134,7 @@ export class SkySystem {
 	}
 
 	public update() {
+		this.atmosphere.backgroundMesh.position.copy(this.camera.position);
 		const changed = this.toggle.update();
 
 		if (changed) {
@@ -444,8 +449,6 @@ export class SkySystem {
 		this.renderer.shadowMap.autoUpdate = previousShadowAutoUpdate;
 		this.renderer.xr.enabled = previousXrEnabled;
 		this.renderer.setRenderTarget(previousRenderTarget);
-
-		this.scene.background = this.cubeTarget.texture;
 
 		if (!updateEnvironment) {
 			return;
