@@ -7,6 +7,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 import { GrassMaterial } from "./GrassMaterial";
 import { OrbSystem } from "./OrbSystem";
+import { SkySystem } from "./SkySystem";
 
 export class FluffyGrass {
 	// # Need access to these outside the comp
@@ -40,6 +41,7 @@ export class FluffyGrass {
 	private grassMaterial: GrassMaterial;
 	private grassCount = 8000;
 	private orbSystem: OrbSystem;
+	private skySystem: SkySystem;
 
 
 	constructor(_canvas: HTMLCanvasElement) {
@@ -64,9 +66,6 @@ export class FluffyGrass {
 		);
 		this.camera.position.set(21.43, 4.51, -7.31);
 		this.scene = new THREE.Scene();
-
-		// Create gradient sky background
-		this.scene.background = this.createGradientSky();
 		this.scene.fog = new THREE.FogExp2(
 			this.sceneProps.fogColor,
 			this.sceneProps.fogDensity
@@ -75,7 +74,7 @@ export class FluffyGrass {
 		this.renderer = new THREE.WebGLRenderer({
 			canvas: this.canvas,
 			antialias: true,
-			alpha: true,
+			alpha: false,
 			precision: "highp", // Use high precision
 		});
 		this.renderer.shadowMap.enabled = true;
@@ -86,6 +85,7 @@ export class FluffyGrass {
 		this.renderer.setSize(window.innerWidth, window.innerHeight);
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.scene.frustumCulled = true;
+		this.skySystem = new SkySystem(this.scene, this.renderer);
 
 		this.orbitControls = new OrbitControls(this.camera, canvas);
 		this.orbitControls.autoRotate = false;
@@ -104,33 +104,6 @@ export class FluffyGrass {
 		this.init();
 	}
 
-	private createGradientSky(): THREE.Texture {
-		const canvas = document.createElement('canvas');
-		canvas.width = 1;
-		canvas.height = 512; // Higher resolution for smooth gradient
-		
-		const ctx = canvas.getContext('2d')!;
-		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-		
-		// Top 5% - #eeeeee (light grey)
-		gradient.addColorStop(0, '#eeeeee');
-		gradient.addColorStop(0.05, '#eeeeee');
-		
-		// Next 50% - #5f98e2 (sky blue) 
-		gradient.addColorStop(0.55, '#5f98e2');
-		
-		// Next 40% - #cd664b (warm terracotta)
-		gradient.addColorStop(1, '#cd664b');
-		
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		
-		const texture = new THREE.CanvasTexture(canvas);
-		texture.needsUpdate = true;
-		
-		return texture;
-	}
-
 	private init() {
 		this.setupGUI();
 		this.setupStats();
@@ -138,7 +111,6 @@ export class FluffyGrass {
 		// this.createCube();
 		this.loadModels();
 		this.setupEventListeners();
-		this.addLights();
 	}
 
 	private createCube() {
@@ -148,23 +120,6 @@ export class FluffyGrass {
 		cube.position.set(6, 5, -3);
 		cube.castShadow = true;
 		this.scene.add(cube);
-	}
-
-	private addLights() {
-		const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-		this.scene.add(ambientLight);
-
-		const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
-		directionalLight.castShadow = true;
-		directionalLight.position.set(100, 100, 100);
-		directionalLight.shadow.camera.far = 200;
-		directionalLight.shadow.camera.left = -50;
-		directionalLight.shadow.camera.right = 50;
-		directionalLight.shadow.camera.top = 50;
-		directionalLight.shadow.camera.bottom = -50;
-		directionalLight.shadow.mapSize.set(2048, 2048);
-
-		this.scene.add(directionalLight);
 	}
 
 	private addGrass(
@@ -259,6 +214,7 @@ export class FluffyGrass {
 	public render() {
 		this.Uniforms.uTime.value += this.clock.getDelta();
 		this.grassMaterial.update(this.Uniforms.uTime.value);
+		this.skySystem.update();
 		
 		// Update orb system if initialized
 		if (this.orbSystem) {
@@ -292,15 +248,17 @@ export class FluffyGrass {
 	}
 
 	private setupGUI() {
-		this.gui.close();
+		this.gui.open();
+		this.gui.width = 360;
 		const guiContainer = this.gui.domElement.parentElement as HTMLDivElement;
 		guiContainer.style.zIndex = "9999";
 		guiContainer.style.position = "fixed";
 		guiContainer.style.top = "0";
 		guiContainer.style.left = "0";
 		guiContainer.style.right = "auto";
-		guiContainer.style.display = "none"; // Hide the controls
+		guiContainer.style.display = "block";
 
+		this.skySystem.setupGUI(this.gui);
 		this.sceneGUI = this.gui.addFolder("Scene Properties");
 		this.sceneGUI.add(this.orbitControls, "autoRotate").name("Auto Rotate");
 		this.sceneGUI
@@ -330,6 +288,11 @@ export class FluffyGrass {
 
 	private setupEventListeners() {
 		window.addEventListener("resize", () => this.setAspectResolution(), false);
+		window.addEventListener("keydown", (event) => {
+			if (event.key.toLowerCase() === "n") {
+				this.skySystem.toggleMode();
+			}
+		});
 
 		// Commented out due to TypeScript errors with private dom property
 		// this.stats.dom.addEventListener("click", () => {
