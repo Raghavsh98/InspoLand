@@ -8,6 +8,7 @@ import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 import { GrassMaterial } from "./GrassMaterial";
 import { OrbSystem } from "./OrbSystem";
 import { SkySystem } from "./SkySystem";
+import { DEFAULT_SKY_TRANSITION_MS } from "./SkyToggle";
 import { initScatterTextHero } from "./scatterTextHero";
 
 export class FluffyGrass {
@@ -45,13 +46,53 @@ export class FluffyGrass {
 	private skySystem: SkySystem;
 
 	private guiContainerEl: HTMLDivElement | null = null;
+	private readonly guiThemeStorageKey = "fg-console-theme";
+	/** Pill + `N` stay aligned with sky: day ↔ light GUI, night ↔ dark GUI. */
+	private applyGuiTheme: ((
+		theme: "dark" | "light",
+		persist: boolean,
+		skipSkySync: boolean
+	) => void) | null = null;
 	private guiChordKeys = new Set<string>();
 	private guiChordWasActive = false;
 	private autoRotateGui?: dat.GUIController;
 	private rotateMusic?: HTMLAudioElement;
+	/** Independent of auto-rotate: only affects the rotate-mode background track. */
+	private musicMuted = false;
+	private transportPlayBtn: HTMLButtonElement | null = null;
+	private transportMuteBtn: HTMLButtonElement | null = null;
+	/** After orb opens an external link: resume play on tab return only if transport was playing before that pause. */
+	private transportResumePlayAfterTabReturn = false;
+	private orbExternalPauseActive = false;
+	/** Non-null while a volume ramp (fade-in) is running; cleared when finished or cancelled. */
+	private rotateMusicVolumeRampRafId: number | null = null;
+
+	private onDocumentVisibilityChange = () => {
+		if (document.visibilityState === "hidden") {
+			this.cancelRotateMusicVolumeRamp();
+			const audio = this.rotateMusic;
+			if (audio && this.orbitControls.autoRotate) {
+				audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
+			}
+			return;
+		}
+		if (document.visibilityState !== "visible") {
+			return;
+		}
+		if (!this.transportResumePlayAfterTabReturn) {
+			return;
+		}
+		this.transportResumePlayAfterTabReturn = false;
+		this.orbitControls.autoRotate = true;
+		this.autoRotateGui?.updateDisplay();
+		this.syncRotateMusic({ fadeIn: true });
+		this.refreshTransportUi();
+	};
 
 	private static readonly ROTATE_MODE_MUSIC_URL =
 		"https://res.cloudinary.com/dwf4f4ftl/video/upload/v1777800882/Static_Orchard_345_qqlbvv.mp3";
+	private static readonly ROTATE_MUSIC_FADE_IN_MS = 1500;
+	private static readonly ROTATE_MUSIC_TARGET_VOLUME = 1;
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -115,30 +156,186 @@ export class FluffyGrass {
 
 	private init() {
 		this.initRotateMusic();
+		this.setupTransportControls();
 		this.setupGUI();
 		this.setupStats();
 		this.setupTextures();
 		// this.createCube();
 		this.loadModels();
 		this.setupEventListeners();
+		document.addEventListener("visibilitychange", this.onDocumentVisibilityChange);
 	}
 
 	private initRotateMusic() {
 		const audio = new Audio(FluffyGrass.ROTATE_MODE_MUSIC_URL);
 		audio.loop = true;
 		audio.preload = "auto";
+		audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
+		audio.muted = this.musicMuted;
 		this.rotateMusic = audio;
 	}
 
-	private syncRotateMusic() {
+	private cancelRotateMusicVolumeRamp() {
+		if (this.rotateMusicVolumeRampRafId !== null) {
+			cancelAnimationFrame(this.rotateMusicVolumeRampRafId);
+			this.rotateMusicVolumeRampRafId = null;
+		}
+	}
+
+	private syncRotateMusic(opts?: { fadeIn?: boolean }) {
 		const audio = this.rotateMusic;
 		if (!audio) {
 			return;
 		}
+		audio.muted = this.musicMuted;
 		if (this.orbitControls.autoRotate) {
-			void audio.play().catch(() => {});
+			const useFadeIn = Boolean(opts?.fadeIn && !this.musicMuted);
+			if (useFadeIn) {
+				this.cancelRotateMusicVolumeRamp();
+				audio.volume = 0;
+				void audio.play().catch(() => {});
+				const start = performance.now();
+				const target = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
+				const duration = FluffyGrass.ROTATE_MUSIC_FADE_IN_MS;
+				const step = (now: number) => {
+					if (this.rotateMusic !== audio) {
+						this.rotateMusicVolumeRampRafId = null;
+						return;
+					}
+					if (!this.orbitControls.autoRotate) {
+						audio.volume = target;
+						this.rotateMusicVolumeRampRafId = null;
+						return;
+					}
+					if (this.musicMuted) {
+						audio.volume = target;
+						this.rotateMusicVolumeRampRafId = null;
+						return;
+					}
+					const t = Math.min(1, (now - start) / duration);
+					audio.volume = target * t;
+					if (t < 1) {
+						this.rotateMusicVolumeRampRafId = requestAnimationFrame(step);
+					} else {
+						audio.volume = target;
+						this.rotateMusicVolumeRampRafId = null;
+					}
+				};
+				this.rotateMusicVolumeRampRafId = requestAnimationFrame(step);
+			} else {
+				this.cancelRotateMusicVolumeRamp();
+				audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
+				void audio.play().catch(() => {});
+			}
 		} else {
+			this.cancelRotateMusicVolumeRamp();
+			audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
 			audio.pause();
+		}
+	}
+
+	private setupTransportControls() {
+		const playBtn = document.getElementById(
+			"scene-transport-play"
+		) as HTMLButtonElement | null;
+		const muteBtn = document.getElementById(
+			"scene-transport-mute"
+		) as HTMLButtonElement | null;
+		this.transportPlayBtn = playBtn;
+		this.transportMuteBtn = muteBtn;
+		if (!playBtn) {
+			return;
+		}
+		playBtn.addEventListener("click", () => this.toggleTransportPlay());
+		muteBtn?.addEventListener("click", () => this.toggleTransportMute());
+		this.refreshTransportUi();
+	}
+
+	private pauseTransportForOrbExternalOpen() {
+		this.transportResumePlayAfterTabReturn = this.orbitControls.autoRotate;
+		this.orbExternalPauseActive = true;
+		try {
+			this.orbitControls.autoRotate = false;
+			this.autoRotateGui?.updateDisplay();
+			this.syncRotateMusic();
+			this.refreshTransportUi();
+		} finally {
+			this.orbExternalPauseActive = false;
+		}
+	}
+
+	private toggleTransportPlay() {
+		this.orbitControls.autoRotate = !this.orbitControls.autoRotate;
+		if (!this.orbitControls.autoRotate) {
+			this.transportResumePlayAfterTabReturn = false;
+		}
+		this.autoRotateGui?.updateDisplay();
+		this.syncRotateMusic();
+		this.refreshTransportUi();
+	}
+
+	/** Skip transport shortcuts when focus is in form controls, buttons, or dat.GUI fields. */
+	private shouldIgnoreKeyboardShortcut(event: KeyboardEvent): boolean {
+		const t = event.target as HTMLElement | null;
+		if (!t) {
+			return false;
+		}
+		if (t.isContentEditable) {
+			return true;
+		}
+		const tag = t.tagName;
+		if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") {
+			return true;
+		}
+		if (t.closest("button")) {
+			return true;
+		}
+		if (this.gui?.domElement.contains(t)) {
+			return Boolean(t.closest(".dg input, .dg textarea, .dg select"));
+		}
+		return false;
+	}
+
+	private toggleTransportMute() {
+		this.musicMuted = !this.musicMuted;
+		const audio = this.rotateMusic;
+		if (audio) {
+			audio.muted = this.musicMuted;
+			if (this.musicMuted) {
+				this.cancelRotateMusicVolumeRamp();
+				audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
+			}
+		}
+		this.refreshTransportUi();
+	}
+
+	private refreshTransportUi() {
+		const playing = this.orbitControls.autoRotate;
+		if (this.transportPlayBtn) {
+			this.transportPlayBtn.textContent = playing ? "Pause" : "Play";
+			this.transportPlayBtn.setAttribute("aria-pressed", playing ? "true" : "false");
+			this.transportPlayBtn.setAttribute(
+				"aria-label",
+				playing ? "Pause automatic camera rotation and music" : "Start automatic camera rotation and music"
+			);
+		}
+		if (this.transportMuteBtn) {
+			if (playing) {
+				this.transportMuteBtn.hidden = false;
+				this.transportMuteBtn.removeAttribute("aria-hidden");
+				this.transportMuteBtn.textContent = this.musicMuted ? "Unmute" : "Mute";
+				this.transportMuteBtn.setAttribute(
+					"aria-pressed",
+					this.musicMuted ? "true" : "false"
+				);
+				this.transportMuteBtn.setAttribute(
+					"aria-label",
+					this.musicMuted ? "Unmute background music" : "Mute background music"
+				);
+			} else {
+				this.transportMuteBtn.hidden = true;
+				this.transportMuteBtn.setAttribute("aria-hidden", "true");
+			}
 		}
 	}
 
@@ -233,7 +430,13 @@ export class FluffyGrass {
 				this.addGrass(terrainMesh, this.grassGeometry);
 				
 				// Initialize orb system after terrain is loaded
-				this.orbSystem = new OrbSystem(this.scene, this.camera, terrainMesh, this.canvas);
+				this.orbSystem = new OrbSystem(
+					this.scene,
+					this.camera,
+					terrainMesh,
+					this.canvas,
+					() => this.pauseTransportForOrbExternalOpen()
+				);
 			});
 		});
 
@@ -291,7 +494,13 @@ export class FluffyGrass {
 		this.autoRotateGui = this.sceneGUI
 			.add(this.orbitControls, "autoRotate")
 			.name("Auto Rotate")
-			.onChange(() => this.syncRotateMusic());
+			.onChange(() => {
+				this.syncRotateMusic();
+				this.refreshTransportUi();
+				if (!this.orbExternalPauseActive && !this.orbitControls.autoRotate) {
+					this.transportResumePlayAfterTabReturn = false;
+				}
+			});
 		this.sceneGUI
 			.add(this.sceneProps, "fogDensity", 0, 0.05, 0.000001)
 			.onChange((value) => {
@@ -311,6 +520,98 @@ export class FluffyGrass {
 		this.guiContainerEl = guiContainer;
 		this.guiContainerEl.style.display = "none";
 		this.setupGuiChordToggle();
+		this.setupGuiThemeToggle(this.gui.domElement);
+	}
+
+	private setupGuiThemeToggle(panelRoot: HTMLElement) {
+		document.documentElement.style.setProperty(
+			"--console-theme-transition",
+			`${DEFAULT_SKY_TRANSITION_MS}ms`
+		);
+
+		const mkToolbar = () => {
+			const toolbar = document.createElement("div");
+			toolbar.className = "gui-console-theme-toolbar";
+			toolbar.setAttribute("role", "group");
+			toolbar.setAttribute("aria-label", "Console color scheme");
+
+			const mkBtn = (theme: "dark" | "light", label: string) => {
+				const btn = document.createElement("button");
+				btn.type = "button";
+				btn.className = "gui-console-theme-btn";
+				btn.dataset.theme = theme;
+				btn.textContent = label;
+				btn.setAttribute("aria-pressed", "false");
+				return btn;
+			};
+			const darkBtn = mkBtn("dark", "Dark");
+			const lightBtn = mkBtn("light", "Light");
+			toolbar.append(darkBtn, lightBtn);
+			return { toolbar, darkBtn, lightBtn };
+		};
+
+		const inPanel = mkToolbar();
+		const floatingWrap = document.createElement("div");
+		floatingWrap.className = "console-theme-floating";
+		floatingWrap.setAttribute("role", "region");
+		floatingWrap.setAttribute("aria-label", "Developer console appearance");
+		const floating = mkToolbar();
+		floating.toolbar.classList.add("gui-console-theme-toolbar--overlay");
+		floatingWrap.appendChild(floating.toolbar);
+		document.body.appendChild(floatingWrap);
+
+		const toolbars = [inPanel, floating];
+
+		const skyModeForGuiTheme = (theme: "dark" | "light") =>
+			theme === "light" ? "day" : "night";
+
+		const apply = (theme: "dark" | "light", persist: boolean, skipSkySync: boolean) => {
+			panelRoot.classList.toggle("gui-theme-light", theme === "light");
+			floatingWrap.classList.toggle("is-gui-theme-light", theme === "light");
+			for (const t of toolbars) {
+				t.darkBtn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+				t.lightBtn.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
+			}
+			if (persist) {
+				try {
+					localStorage.setItem(this.guiThemeStorageKey, theme);
+				} catch {
+					/* ignore quota / private mode */
+				}
+			}
+			if (!skipSkySync) {
+				this.skySystem.setMode(skyModeForGuiTheme(theme));
+			}
+		};
+
+		this.applyGuiTheme = apply;
+
+		let initial: "dark" | "light" = "dark";
+		try {
+			const stored = localStorage.getItem(this.guiThemeStorageKey);
+			if (stored === "light" || stored === "dark") {
+				initial = stored;
+			}
+		} catch {
+			/* ignore */
+		}
+		apply(initial, false, true);
+		this.skySystem.setMode(skyModeForGuiTheme(initial), 0);
+
+		this.skySystem.setAfterToggleModeHandler(() => {
+			const theme = this.skySystem.getMode() === "day" ? "light" : "dark";
+			this.applyGuiTheme?.(theme, true, true);
+		});
+
+		const wire = (t: ReturnType<typeof mkToolbar>) => {
+			t.darkBtn.addEventListener("click", () => apply("dark", true, false));
+			t.lightBtn.addEventListener("click", () => apply("light", true, false));
+		};
+		wire(inPanel);
+		wire(floating);
+
+		panelRoot.style.position = "relative";
+		panelRoot.appendChild(inPanel.toolbar);
 	}
 
 	private setupGuiChordToggle() {
@@ -375,26 +676,31 @@ export class FluffyGrass {
 		window.addEventListener("keydown", (event) => {
 			const key = event.key.toLowerCase();
 			if (key === "n") {
+				if (this.shouldIgnoreKeyboardShortcut(event)) {
+					return;
+				}
+				event.preventDefault();
 				this.skySystem.toggleMode();
 				return;
 			}
-			if (key === "a") {
-				if (event.metaKey || event.ctrlKey || event.altKey) {
-					return;
-				}
-				const t = event.target as HTMLElement | null;
-				if (
-					t &&
-					(t.tagName === "INPUT" ||
-						t.tagName === "TEXTAREA" ||
-						t.tagName === "SELECT" ||
-						t.isContentEditable)
-				) {
-					return;
-				}
-				this.orbitControls.autoRotate = !this.orbitControls.autoRotate;
-				this.autoRotateGui?.updateDisplay();
-				this.syncRotateMusic();
+
+			const isSpace = event.code === "Space" || event.key === " ";
+			const isAToggle =
+				key === "a" && !event.metaKey && !event.ctrlKey && !event.altKey;
+
+			if (!isSpace && !isAToggle) {
+				return;
+			}
+			if (this.shouldIgnoreKeyboardShortcut(event)) {
+				return;
+			}
+			if (isSpace && event.repeat) {
+				return;
+			}
+
+			this.toggleTransportPlay();
+			if (isSpace) {
+				event.preventDefault();
 			}
 		});
 

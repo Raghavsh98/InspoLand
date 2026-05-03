@@ -13,6 +13,9 @@ export interface SkyTransitionState {
 
 type UpdateCallback = (state: SkyTransitionState) => void;
 
+/** Default duration (ms) for day/night sky tween; shared with console UI theme transitions. */
+export const DEFAULT_SKY_TRANSITION_MS = 2200;
+
 const cloneState = (state: SkyTransitionState): SkyTransitionState => ({
 	sunDirection: state.sunDirection.clone().normalize(),
 	directionalLightIntensity: state.directionalLightIntensity,
@@ -91,7 +94,7 @@ export class SkyToggle {
 		this.reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 	}
 
-	public toggle(toState: SkyTransitionState, duration = 2200) {
+	public toggle(toState: SkyTransitionState, duration = DEFAULT_SKY_TRANSITION_MS) {
 		this.fromState = cloneState(this.currentState);
 		this.toState = cloneState(toState);
 		this.duration = this.reduceMotion ? 0 : duration;

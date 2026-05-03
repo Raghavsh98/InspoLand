@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { inspirationLinks, LinkData } from "./links";
+import {
+    allInspirationUrlsClickedThisSession,
+    clearOrbClickedSession,
+    isOrbUrlClickedThisSession,
+    recordOrbUrlClickedThisSession,
+} from "./orbSessionClicks";
 
 interface OrbData {
     mesh: THREE.Mesh;
@@ -36,7 +42,8 @@ export class OrbSystem {
     private mouse = new THREE.Vector2();
     private canvas: HTMLCanvasElement;
     private usedLinks: Set<number> = new Set(); // Track used link indices
-    
+    private readonly onBeforeOrbOpensExternalLink?: () => void;
+
     // Handpicked spawn locations
     private spawnPoints: THREE.Vector3[] = [
         new THREE.Vector3(8.30, 1.11, -8.60),   // #1
@@ -76,11 +83,18 @@ export class OrbSystem {
         return window.innerWidth <= 768;
     }
 
-    constructor(scene: THREE.Scene, camera: THREE.Camera, terrainMesh: THREE.Mesh, canvas: HTMLCanvasElement) {
+    constructor(
+        scene: THREE.Scene,
+        camera: THREE.Camera,
+        terrainMesh: THREE.Mesh,
+        canvas: HTMLCanvasElement,
+        onBeforeOrbOpensExternalLink?: () => void
+    ) {
         this.scene = scene;
         this.camera = camera;
         this.terrainMesh = terrainMesh;
         this.canvas = canvas;
+        this.onBeforeOrbOpensExternalLink = onBeforeOrbOpensExternalLink;
         
         // Create orb material template - off-white, 80% opacity
         this.orbMaterial = new THREE.MeshBasicMaterial({
@@ -426,7 +440,11 @@ export class OrbSystem {
             
             if (clickedOrb && !clickedOrb.isClicked) {
                 clickedOrb.isClicked = true;
-                
+
+                recordOrbUrlClickedThisSession(clickedOrb.linkData.url);
+
+                this.onBeforeOrbOpensExternalLink?.();
+
                 // Open URL in new tab
                 window.open(clickedOrb.linkData.url, '_blank');
                 
@@ -441,26 +459,50 @@ export class OrbSystem {
     }
 
     private getRandomLink(): LinkData {
-        // Get available links (not currently used by active orbs)
-        const availableIndices = [];
-        for (let i = 0; i < inspirationLinks.length; i++) {
-            if (!this.usedLinks.has(i)) {
-                availableIndices.push(i);
+        const poolUrls = inspirationLinks.map((l) => l.url);
+
+        const buildAvailable = (): number[] => {
+            const out: number[] = [];
+            for (let i = 0; i < inspirationLinks.length; i++) {
+                if (
+                    !this.usedLinks.has(i) &&
+                    !isOrbUrlClickedThisSession(inspirationLinks[i].url)
+                ) {
+                    out.push(i);
+                }
             }
+            return out;
+        };
+
+        let availableIndices = buildAvailable();
+
+        // Full cycle: every inspiration URL was opened this session — allow repeats only after that.
+        if (availableIndices.length === 0 && allInspirationUrlsClickedThisSession(poolUrls)) {
+            clearOrbClickedSession();
+            availableIndices = buildAvailable();
         }
-        
-        // If all links are used, reset the used set
+
+        // Same as before: no slot left only because both orbs hold links — recycle in-rotation indices.
         if (availableIndices.length === 0) {
             this.usedLinks.clear();
+            availableIndices = buildAvailable();
+        }
+
+        if (availableIndices.length === 0) {
+            clearOrbClickedSession();
+            this.usedLinks.clear();
+            availableIndices = buildAvailable();
+        }
+        if (availableIndices.length === 0) {
             for (let i = 0; i < inspirationLinks.length; i++) {
                 availableIndices.push(i);
             }
         }
-        
-        // Pick random available link
-        const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+
+        const randomIndex =
+            availableIndices[Math.floor(Math.random() * availableIndices.length)];
         this.usedLinks.add(randomIndex);
-        
+
         return inspirationLinks[randomIndex];
     }
 

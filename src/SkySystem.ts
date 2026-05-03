@@ -5,7 +5,11 @@ import {
 	SkyAtmosphere,
 	SkyAtmosphereSettings,
 } from "./SkyAtmosphere";
-import { SkyToggle, SkyTransitionState } from "./SkyToggle";
+import {
+	DEFAULT_SKY_TRANSITION_MS,
+	SkyToggle,
+	SkyTransitionState,
+} from "./SkyToggle";
 
 export type SkyMode = "day" | "night";
 
@@ -101,6 +105,8 @@ export class SkySystem {
 	private mode: SkyMode = "day";
 	private guiControllers: dat.GUIController[] = [];
 	private controls: SkyControlValues = this.createControlValues(DAY_STATE);
+	/** Invoked after `toggleMode()` completes (keyboard / GUI), not after `setMode` (pill / init). */
+	private afterToggleMode?: () => void;
 
 	constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
 		this.scene = scene;
@@ -133,15 +139,24 @@ export class SkySystem {
 		this.bake(true);
 	}
 
-	public toggleMode() {
-		this.mode = this.mode === "day" ? "night" : "day";
-		this.toggle.toggle(SKY_STATES[this.mode]);
-		this.syncControlsFromState(SKY_STATES[this.mode]);
+	public getMode(): SkyMode {
+		return this.mode;
 	}
 
-	public setMode(mode: SkyMode) {
+	public setAfterToggleModeHandler(handler?: () => void) {
+		this.afterToggleMode = handler;
+	}
+
+	public toggleMode() {
+		this.mode = this.mode === "day" ? "night" : "day";
+		this.toggle.toggle(SKY_STATES[this.mode], DEFAULT_SKY_TRANSITION_MS);
+		this.syncControlsFromState(SKY_STATES[this.mode]);
+		this.afterToggleMode?.();
+	}
+
+	public setMode(mode: SkyMode, durationMs = DEFAULT_SKY_TRANSITION_MS) {
 		this.mode = mode;
-		this.toggle.toggle(SKY_STATES[this.mode]);
+		this.toggle.toggle(SKY_STATES[this.mode], durationMs);
 		this.syncControlsFromState(SKY_STATES[this.mode]);
 	}
 
