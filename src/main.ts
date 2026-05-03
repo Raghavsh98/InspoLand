@@ -47,6 +47,11 @@ export class FluffyGrass {
 	private guiContainerEl: HTMLDivElement | null = null;
 	private guiChordKeys = new Set<string>();
 	private guiChordWasActive = false;
+	private autoRotateGui?: dat.GUIController;
+	private rotateMusic?: HTMLAudioElement;
+
+	private static readonly ROTATE_MODE_MUSIC_URL =
+		"https://res.cloudinary.com/dwf4f4ftl/video/upload/v1777800882/Static_Orchard_345_qqlbvv.mp3";
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -109,12 +114,32 @@ export class FluffyGrass {
 	}
 
 	private init() {
+		this.initRotateMusic();
 		this.setupGUI();
 		this.setupStats();
 		this.setupTextures();
 		// this.createCube();
 		this.loadModels();
 		this.setupEventListeners();
+	}
+
+	private initRotateMusic() {
+		const audio = new Audio(FluffyGrass.ROTATE_MODE_MUSIC_URL);
+		audio.loop = true;
+		audio.preload = "auto";
+		this.rotateMusic = audio;
+	}
+
+	private syncRotateMusic() {
+		const audio = this.rotateMusic;
+		if (!audio) {
+			return;
+		}
+		if (this.orbitControls.autoRotate) {
+			void audio.play().catch(() => {});
+		} else {
+			audio.pause();
+		}
 	}
 
 	private createCube() {
@@ -263,7 +288,10 @@ export class FluffyGrass {
 
 		this.skySystem.setupGUI(this.gui);
 		this.sceneGUI = this.gui.addFolder("Scene Properties");
-		this.sceneGUI.add(this.orbitControls, "autoRotate").name("Auto Rotate");
+		this.autoRotateGui = this.sceneGUI
+			.add(this.orbitControls, "autoRotate")
+			.name("Auto Rotate")
+			.onChange(() => this.syncRotateMusic());
 		this.sceneGUI
 			.add(this.sceneProps, "fogDensity", 0, 0.05, 0.000001)
 			.onChange((value) => {
@@ -345,8 +373,28 @@ export class FluffyGrass {
 	private setupEventListeners() {
 		window.addEventListener("resize", () => this.setAspectResolution(), false);
 		window.addEventListener("keydown", (event) => {
-			if (event.key.toLowerCase() === "n") {
+			const key = event.key.toLowerCase();
+			if (key === "n") {
 				this.skySystem.toggleMode();
+				return;
+			}
+			if (key === "a") {
+				if (event.metaKey || event.ctrlKey || event.altKey) {
+					return;
+				}
+				const t = event.target as HTMLElement | null;
+				if (
+					t &&
+					(t.tagName === "INPUT" ||
+						t.tagName === "TEXTAREA" ||
+						t.tagName === "SELECT" ||
+						t.isContentEditable)
+				) {
+					return;
+				}
+				this.orbitControls.autoRotate = !this.orbitControls.autoRotate;
+				this.autoRotateGui?.updateDisplay();
+				this.syncRotateMusic();
 			}
 		});
 

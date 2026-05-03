@@ -200,6 +200,32 @@ vec3 getSkyColor(vec3 viewDir, vec3 sunDir) {
 	return color;
 }
 
+float hash33(vec3 p3) {
+	p3 = fract(p3 * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yxz + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+// Sparse sub-pixel white dots, strongest toward the zenith at night
+float nightStarDots(vec3 rd) {
+	vec3 g = rd * 280.0;
+	vec3 cell = floor(g);
+	vec3 fracOff = fract(g) - 0.5;
+	float pick = hash33(cell);
+	if (pick < 0.9948) {
+		return 0.0;
+	}
+	float brightness = 0.35 + 0.65 * hash33(cell + vec3(17.0, 41.0, 29.0));
+	vec2 jitter = vec2(
+		hash33(cell + vec3(2.0, 5.0, 7.0)),
+		hash33(cell + vec3(11.0, 13.0, 17.0))
+	) - 0.5;
+	float dist = length(fracOff.xy + jitter * 0.32);
+	float dotMask = 1.0 - smoothstep(0.045, 0.11, dist);
+	float zenithFade = smoothstep(-0.32, 0.12, rd.y + uHorizonOffset * 0.3);
+	return brightness * dotMask * zenithFade * 0.42;
+}
+
 void main() {
 	vec3 viewDir = normalize(vWorldDirection);
 	vec3 sunDir = normalize(uSunDirection);
@@ -227,6 +253,9 @@ void main() {
 	// The raymarch gives the physical base; this layer pushes it toward the richer
 	// blue-hour palette in the references without introducing a separate night model.
 	color = color * uSkyMultiplier + daySky + twilightSky + nightSky;
+
+	float stars = nightStarDots(viewDir) * nightAmount;
+	color += vec3(stars);
 
 	gl_FragColor = vec4(color, 1.0);
 }
