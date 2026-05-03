@@ -1,17 +1,103 @@
 import type { GUI } from "dat.gui";
 
+/** Landing motion: enter → hold → exit (see `runScatterHeroIntroMotion`). */
+const SCATTER_HERO_ENTER_MS = 1000;
+const SCATTER_HERO_HOLD_MS = 1000;
+const SCATTER_HERO_EXIT_MS = 500;
+const SCATTER_HERO_SLIDE_PX = 72;
+
+function runScatterHeroIntroMotion(
+	root: HTMLElement,
+	onExitComplete: () => void
+): void {
+	const wrap = root.querySelector(".scatter-text-hero__wrap");
+	if (!(wrap instanceof HTMLElement)) return;
+
+	const reduced = window.matchMedia(
+		"(prefers-reduced-motion: reduce)"
+	).matches;
+
+	wrap.style.opacity = "0";
+	if (!reduced) {
+		wrap.style.transform = `translateY(${SCATTER_HERO_SLIDE_PX}px)`;
+	}
+
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => {
+			wrap.style.transition = reduced
+				? `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out`
+				: `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out, transform ${SCATTER_HERO_ENTER_MS}ms ease-out`;
+			wrap.style.opacity = "1";
+			if (!reduced) {
+				wrap.style.transform = "translateY(0)";
+			}
+		});
+	});
+
+	window.setTimeout(() => {
+		wrap.style.transition = `opacity ${SCATTER_HERO_EXIT_MS}ms ease-out`;
+		wrap.style.opacity = "0";
+	}, SCATTER_HERO_ENTER_MS + SCATTER_HERO_HOLD_MS);
+
+	window.setTimeout(() => {
+		wrap.style.transition = "";
+		root.style.display = "none";
+		onExitComplete();
+	}, SCATTER_HERO_ENTER_MS + SCATTER_HERO_HOLD_MS + SCATTER_HERO_EXIT_MS);
+}
+
+/** Match layout tweaks (stacked headline on small screens). */
+const SCATTER_HERO_MOBILE_MAX_WIDTH_PX = 768;
+
+function isScatterHeroMobileLayout(): boolean {
+	return window.matchMedia(
+		`(max-width: ${SCATTER_HERO_MOBILE_MAX_WIDTH_PX}px)`
+	).matches;
+}
+
+/** Desktop: single line unless the string contains newlines. Mobile: split words onto lines (two-word title → one word per line). */
+export function getScatterHeroLines(raw: string): string[] {
+	const trimmed = raw.trim();
+	if (!trimmed) return [];
+
+	if (trimmed.includes("\n")) {
+		return trimmed
+			.split(/\n+/)
+			.map((s) => s.trim())
+			.filter(Boolean);
+	}
+
+	if (!isScatterHeroMobileLayout()) {
+		return [trimmed.replace(/\s+/g, " ")];
+	}
+
+	const words = trimmed.split(/\s+/).filter(Boolean);
+	if (words.length <= 1) return words;
+	if (words.length === 2) return words;
+	const mid = Math.ceil(words.length / 2);
+	return [
+		words.slice(0, mid).join(" "),
+		words.slice(mid).join(" "),
+	];
+}
+
 /** Fixed raster bloom; not exposed in GUI. */
 const LOCKED_BLOOM_PX = 2.5;
 const LOCKED_INNER_SPREAD_PX = 4.5;
+
+function rasterPaddingPx(scatterRadius: number): number {
+	const glowReach = LOCKED_INNER_SPREAD_PX + LOCKED_BLOOM_PX * 2.25 + 8;
+	return Math.ceil(glowReach + scatterRadius * 2 + 56);
+}
 
 export const scatterTextHeroDefaults = {
 	text: "Inspiration Lands",
 	scatterRadius: 2,
 	pixelSize: 1,
 	speed: 0.2,
-	canvasW: 1024,
-	canvasH: 512,
-	fontSize: 120,
+	canvasW: 1400,
+	canvasH: 720,
+	fontSize: 160,
 	fontFamily: '"Connection III", "Orbitron", sans-serif',
 };
 
@@ -154,15 +240,43 @@ export function initScatterTextHero(gui: GUI): void {
 	function syncCanvasSize() {
 		const W = Math.max(16, Math.floor(params.canvasW));
 		const H = Math.max(16, Math.floor(params.canvasH));
-		canvas.width = W;
-		canvas.height = H;
+		ensureHeroTextureSize(W, H);
+	}
+
+	function ensureHeroTextureSize(nextW: number, nextH: number) {
+		const w = Math.max(16, Math.floor(nextW));
+		const h = Math.max(16, Math.floor(nextH));
+		if (canvas.width === w && canvas.height === h) return;
+		canvas.width = w;
+		canvas.height = h;
 		gl.bindTexture(gl.TEXTURE_2D, tex);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 	}
 
 	function uploadText() {
-		const W = canvas.width;
-		const H = canvas.height;
+		const lines = getScatterHeroLines(params.text);
+		if (lines.length === 0) return;
+
+		const lineHeight = params.fontSize * 1.22;
+		const measureCanvas = document.createElement("canvas");
+		const measureCtx = measureCanvas.getContext("2d");
+		if (!measureCtx) return;
+		measureCtx.font = `${params.fontSize}px ${params.fontFamily}`;
+
+		let maxW = 0;
+		for (const line of lines) {
+			maxW = Math.max(maxW, measureCtx.measureText(line).width);
+		}
+		const textBlockH = lines.length * lineHeight;
+		const pad = rasterPaddingPx(params.scatterRadius);
+		const needW = Math.ceil(maxW + pad * 2);
+		const needH = Math.ceil(textBlockH + pad * 2);
+
+		const W = Math.max(needW, Math.floor(params.canvasW));
+		const H = Math.max(needH, Math.floor(params.canvasH));
+
+		ensureHeroTextureSize(W, H);
+
 		const c = document.createElement("canvas");
 		c.width = W;
 		c.height = H;
@@ -177,13 +291,20 @@ export function initScatterTextHero(gui: GUI): void {
 		const cx = W / 2;
 		const cy = H / 2;
 
-		// Canvas shadowBlur is unreliable for white-on-transparent glow; build bloom with blur() filters.
+		function drawLinesWhite() {
+			let y = cy - textBlockH / 2 + lineHeight / 2;
+			for (const line of lines) {
+				ctx.fillText(line, cx, y);
+				y += lineHeight;
+			}
+		}
+
 		if (LOCKED_INNER_SPREAD_PX > 0) {
 			ctx.save();
 			ctx.filter = `blur(${LOCKED_INNER_SPREAD_PX}px)`;
 			ctx.globalCompositeOperation = "source-over";
 			ctx.fillStyle = "#ffffff";
-			ctx.fillText(params.text, cx, cy);
+			drawLinesWhite();
 			ctx.restore();
 		}
 
@@ -193,14 +314,14 @@ export function initScatterTextHero(gui: GUI): void {
 			ctx.filter = `blur(${bloom * 2.25}px)`;
 			ctx.globalAlpha = 0.42;
 			ctx.fillStyle = "#ffffff";
-			ctx.fillText(params.text, cx, cy);
+			drawLinesWhite();
 			ctx.restore();
 
 			ctx.save();
 			ctx.filter = `blur(${bloom}px)`;
 			ctx.globalAlpha = 1;
 			ctx.fillStyle = "#ffffff";
-			ctx.fillText(params.text, cx, cy);
+			drawLinesWhite();
 			ctx.restore();
 		}
 
@@ -208,7 +329,7 @@ export function initScatterTextHero(gui: GUI): void {
 		ctx.filter = "none";
 		ctx.globalCompositeOperation = "source-over";
 		ctx.fillStyle = "#ffffff";
-		ctx.fillText(params.text, cx, cy);
+		drawLinesWhite();
 
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 		gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -285,6 +406,17 @@ export function initScatterTextHero(gui: GUI): void {
 
 	scheduleRasterReload();
 
+	let resizeDebounce = 0;
+	function onWindowResize() {
+		window.clearTimeout(resizeDebounce);
+		resizeDebounce = window.setTimeout(() => scheduleRasterReload(), 120);
+	}
+	window.addEventListener("resize", onWindowResize);
+
+	runScatterHeroIntroMotion(root, () => {
+		cancelAnimationFrame(raf);
+	});
+
 	const folder = gui.addFolder("Hero text (scatter)");
 	folder
 		.add(params, "text")
@@ -296,11 +428,11 @@ export function initScatterTextHero(gui: GUI): void {
 	folder.add(params, "pixelSize", 1, 16, 0.5).name("Pixel size");
 	folder.add(params, "speed", 0, 2, 0.01).name("Speed");
 	folder
-		.add(params, "canvasW", 256, 2048, 1)
+		.add(params, "canvasW", 256, 3072, 1)
 		.name("Canvas W")
 		.onFinishChange(() => scheduleRasterReload());
 	folder
-		.add(params, "canvasH", 128, 1024, 1)
+		.add(params, "canvasH", 128, 1280, 1)
 		.name("Canvas H")
 		.onFinishChange(() => scheduleRasterReload());
 	folder
@@ -314,6 +446,8 @@ export function initScatterTextHero(gui: GUI): void {
 	folder.open();
 
 	const onHide = () => {
+		window.removeEventListener("resize", onWindowResize);
+		window.clearTimeout(resizeDebounce);
 		cancelAnimationFrame(raf);
 		gl.deleteTexture(tex);
 		gl.deleteBuffer(buf);

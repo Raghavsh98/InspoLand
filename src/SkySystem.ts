@@ -9,37 +9,6 @@ import { SkyToggle, SkyTransitionState } from "./SkyToggle";
 
 export type SkyMode = "day" | "night";
 
-const DAY_STATE: SkyTransitionState = {
-	sunDirection: new THREE.Vector3(1.0, 0.6, 0.3).normalize(),
-	directionalLightIntensity: 2.0,
-	directionalLightColor: new THREE.Color("#ffffff"),
-	ambientLightIntensity: 0.5,
-	ambientLightColor: new THREE.Color("#ffffff"),
-	fogDensity: 0.023934,
-	fogColor: new THREE.Color("#e9eef0"),
-	exposure: 0.8,
-};
-
-const NIGHT_STATE: SkyTransitionState = {
-	sunDirection: new THREE.Vector3(
-		0.5019867794486782,
-		-0.14055629824562993,
-		0.853377525062753
-	).normalize(),
-	directionalLightIntensity: 0.05,
-	directionalLightColor: new THREE.Color("#b8c8ff"),
-	ambientLightIntensity: 0.12,
-	ambientLightColor: new THREE.Color("#1a2a4a"),
-	fogDensity: 0.028,
-	fogColor: new THREE.Color("#02070a"),
-	exposure: 0.35,
-};
-
-const SKY_STATES: Record<SkyMode, SkyTransitionState> = {
-	day: DAY_STATE,
-	night: NIGHT_STATE,
-};
-
 const directionFromAzimuthElevation = (azimuth: number, elevation: number) => {
 	const azimuthRad = THREE.MathUtils.degToRad(azimuth);
 	const elevationRad = THREE.MathUtils.degToRad(elevation);
@@ -58,6 +27,45 @@ const directionToAzimuthElevation = (direction: THREE.Vector3) => {
 		sunAzimuth: THREE.MathUtils.radToDeg(Math.atan2(normalized.z, normalized.x)),
 		sunElevation: THREE.MathUtils.radToDeg(Math.asin(normalized.y)),
 	};
+};
+
+const DAY_STATE: SkyTransitionState = {
+	sunDirection: new THREE.Vector3(1.0, 0.6, 0.3).normalize(),
+	directionalLightIntensity: 2.0,
+	directionalLightColor: new THREE.Color("#ffffff"),
+	ambientLightIntensity: 0.5,
+	ambientLightColor: new THREE.Color("#ffffff"),
+	fogDensity: 0.023934,
+	fogColor: new THREE.Color("#e9eef0"),
+	exposure: 0.8,
+};
+
+const NIGHT_SUN_ELEVATION_DEG =
+	directionToAzimuthElevation(
+		new THREE.Vector3(
+			0.5019867794486782,
+			-0.14055629824562993,
+			0.853377525062753
+		).normalize()
+	).sunElevation;
+
+const NIGHT_STATE: SkyTransitionState = {
+	sunDirection: directionFromAzimuthElevation(
+		116,
+		NIGHT_SUN_ELEVATION_DEG
+	),
+	directionalLightIntensity: 0.05,
+	directionalLightColor: new THREE.Color("#b8c8ff"),
+	ambientLightIntensity: 0.12,
+	ambientLightColor: new THREE.Color("#1a2a4a"),
+	fogDensity: 0.028,
+	fogColor: new THREE.Color("#02070a"),
+	exposure: 0.35,
+};
+
+const SKY_STATES: Record<SkyMode, SkyTransitionState> = {
+	day: DAY_STATE,
+	night: NIGHT_STATE,
 };
 
 const colorToHex = (color: THREE.Color) => `#${color.getHexString()}`;

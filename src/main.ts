@@ -8,6 +8,7 @@ import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
 import { GrassMaterial } from "./GrassMaterial";
 import { OrbSystem } from "./OrbSystem";
 import { SkySystem } from "./SkySystem";
+import { initScatterTextHero } from "./scatterTextHero";
 
 export class FluffyGrass {
 	// # Need access to these outside the comp
@@ -274,6 +275,8 @@ export class FluffyGrass {
 		this.grassMaterial.setupGUI(this.sceneGUI);
 
 		this.sceneGUI.open();
+
+		initScatterTextHero(this.gui);
 	}
 
 	private setupStats() {

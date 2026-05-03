@@ -31,6 +31,13 @@
 <body>
 
   <canvas id="canvas"></canvas>
+
+  <div id="scatter-text-hero" class="scatter-text-hero" aria-hidden="true">
+    <div class="scatter-text-hero__wrap">
+      <canvas id="scatter-text-canvas" width="1400" height="720"></canvas>
+    </div>
+  </div>
+
   <!-- <button class="randomizeButton">Randomize</button> -->
   
   <!-- Top text elements -->
@@ -81,6 +88,8 @@
     if (window.self !== window.top) {
       document.querySelector('.top-left-text').style.display = 'none';
       document.querySelector('.top-right-text').style.display = 'none';
+      var heroEl = document.getElementById('scatter-text-hero');
+      if (heroEl) heroEl.style.display = 'none';
     }
   </script>
   

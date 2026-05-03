@@ -24,9 +24,6 @@ const cloneState = (state: SkyTransitionState): SkyTransitionState => ({
 	exposure: state.exposure,
 });
 
-const easeInOutCubic = (t: number) =>
-	t < 0.5 ? 4.0 * t * t * t : 1.0 - Math.pow(-2.0 * t + 2.0, 3.0) / 2.0;
-
 const slerpDirection = (
 	from: THREE.Vector3,
 	to: THREE.Vector3,
@@ -114,8 +111,7 @@ export class SkyToggle {
 
 		const elapsed = now - this.startTime;
 		const progress = this.duration === 0 ? 1 : Math.min(elapsed / this.duration, 1);
-		const easedProgress = easeInOutCubic(progress);
-		this.currentState = interpolateState(this.fromState, this.toState, easedProgress);
+		this.currentState = interpolateState(this.fromState, this.toState, progress);
 		this.onUpdate(this.currentState);
 
 		if (progress >= 1) {
