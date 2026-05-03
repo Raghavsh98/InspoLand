@@ -41,8 +41,9 @@
   <!-- <button class="randomizeButton">Randomize</button> -->
   
   <!-- Top text elements -->
-  <div class="top-left-text">inspiration grasslands</div>
-  <div class="top-right-text"><a href="#" id="designer-notes-link">note from the designer</a></div>
+  <div class="top-left-text">
+    <a href="#" id="designer-notes-link">note from the designer</a>
+  </div>
   
   <!-- Popup Modal -->
   <div id="designer-popup" class="popup-overlay">
@@ -87,7 +88,6 @@
   <script>
     if (window.self !== window.top) {
       document.querySelector('.top-left-text').style.display = 'none';
-      document.querySelector('.top-right-text').style.display = 'none';
       var heroEl = document.getElementById('scatter-text-hero');
       if (heroEl) heroEl.style.display = 'none';
     }

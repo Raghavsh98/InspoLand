@@ -190,30 +190,23 @@ nav a img{
   font-weight: 300;
   color: #888888;
   z-index: 1000;
-  pointer-events: none;
-}
-
-.top-right-text {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  font-family: 'Garamond', 'Times New Roman', serif;
-  font-style: italic;
-  font-size: 12px;
-  font-weight: 300;
-  color: #888888;
-  z-index: 1000;
   pointer-events: auto;
 }
 
-.top-right-text a {
+.top-left-text a {
   color: #888888;
   text-decoration: none;
   transition: all 0.3s ease;
 }
 
-.top-right-text a:hover {
+.top-left-text a:hover {
   text-decoration: underline;
+}
+
+@media (prefers-color-scheme: light) {
+  #designer-notes-link {
+    color: #ffffff;
+  }
 }
 
 /* Popup Modal Styles — ease-out-quart for screen enter/exit; 250ms open / 200ms close via .show cascade */

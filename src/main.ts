@@ -44,6 +44,9 @@ export class FluffyGrass {
 	private orbSystem: OrbSystem;
 	private skySystem: SkySystem;
 
+	private guiContainerEl: HTMLDivElement | null = null;
+	private guiChordKeys = new Set<string>();
+	private guiChordWasActive = false;
 
 	constructor(_canvas: HTMLCanvasElement) {
 		this.loadingManager = new THREE.LoadingManager();
@@ -257,7 +260,6 @@ export class FluffyGrass {
 		guiContainer.style.top = "0";
 		guiContainer.style.left = "0";
 		guiContainer.style.right = "auto";
-		guiContainer.style.display = "block";
 
 		this.skySystem.setupGUI(this.gui);
 		this.sceneGUI = this.gui.addFolder("Scene Properties");
@@ -277,6 +279,57 @@ export class FluffyGrass {
 		this.sceneGUI.open();
 
 		initScatterTextHero(this.gui);
+
+		this.guiContainerEl = guiContainer;
+		this.guiContainerEl.style.display = "none";
+		this.setupGuiChordToggle();
+	}
+
+	private setupGuiChordToggle() {
+		const syncChord = (e?: KeyboardEvent) => {
+			const active = this.isGuiChordActive();
+			if (active && !this.guiChordWasActive) {
+				e?.preventDefault();
+				e?.stopPropagation();
+				this.toggleGuiContainer();
+			}
+			this.guiChordWasActive = active;
+		};
+
+		window.addEventListener(
+			"keydown",
+			(e) => {
+				this.guiChordKeys.add(e.code);
+				syncChord(e);
+			},
+			true
+		);
+		window.addEventListener(
+			"keyup",
+			(e) => {
+				this.guiChordKeys.delete(e.code);
+				syncChord();
+			},
+			true
+		);
+	}
+
+	private isGuiChordActive(): boolean {
+		const p = this.guiChordKeys;
+		return (
+			(p.has("MetaLeft") || p.has("MetaRight")) &&
+			(p.has("ShiftLeft") || p.has("ShiftRight")) &&
+			p.has("KeyR") &&
+			p.has("KeyS")
+		);
+	}
+
+	private toggleGuiContainer() {
+		if (!this.guiContainerEl) {
+			return;
+		}
+		const hidden = this.guiContainerEl.style.display === "none";
+		this.guiContainerEl.style.display = hidden ? "block" : "none";
 	}
 
 	private setupStats() {
