@@ -155,7 +155,6 @@ export class FluffyGrass {
 	}
 
 	private init() {
-		this.initRotateMusic();
 		this.setupTransportControls();
 		this.setupGUI();
 		this.setupStats();
@@ -166,13 +165,18 @@ export class FluffyGrass {
 		document.addEventListener("visibilitychange", this.onDocumentVisibilityChange);
 	}
 
-	private initRotateMusic() {
+	private initRotateMusic(): HTMLAudioElement {
+		if (this.rotateMusic) {
+			this.rotateMusic.muted = this.musicMuted;
+			return this.rotateMusic;
+		}
 		const audio = new Audio(FluffyGrass.ROTATE_MODE_MUSIC_URL);
 		audio.loop = true;
-		audio.preload = "auto";
+		audio.preload = "none";
 		audio.volume = FluffyGrass.ROTATE_MUSIC_TARGET_VOLUME;
 		audio.muted = this.musicMuted;
 		this.rotateMusic = audio;
+		return audio;
 	}
 
 	private cancelRotateMusicVolumeRamp() {
@@ -183,7 +187,9 @@ export class FluffyGrass {
 	}
 
 	private syncRotateMusic(opts?: { fadeIn?: boolean }) {
-		const audio = this.rotateMusic;
+		const audio = this.orbitControls.autoRotate
+			? this.initRotateMusic()
+			: this.rotateMusic;
 		if (!audio) {
 			return;
 		}
@@ -404,21 +410,27 @@ export class FluffyGrass {
 			.onChange((value) => {
 				this.terrainMat.color.set(value);
 			});
-		this.gltfLoader.load("/island.glb", (gltf) => {
-			let terrainMesh: THREE.Mesh;
-			gltf.scene.traverse((child) => {
-				if (child instanceof THREE.Mesh) {
-					child.material = this.terrainMat;
-					child.receiveShadow = true;
-					child.geometry.scale(3, 3, 3);
-					terrainMesh = child;
-				}
-			});
-			this.scene.add(gltf.scene);
 
-			// load grass model
-			this.gltfLoader.load("/grassLODs.glb", (gltf) => {
-				gltf.scene.traverse((child) => {
+		const islandPromise = this.gltfLoader.loadAsync("/island.glb");
+		const grassPromise = this.gltfLoader.loadAsync("/grassLODs.glb");
+
+		void Promise.all([islandPromise, grassPromise])
+			.then(([islandGltf, grassGltf]) => {
+				let terrainMesh: THREE.Mesh | null = null;
+				islandGltf.scene.traverse((child) => {
+					if (child instanceof THREE.Mesh) {
+						child.material = this.terrainMat;
+						child.receiveShadow = true;
+						child.geometry.scale(3, 3, 3);
+						terrainMesh = child;
+					}
+				});
+				if (!terrainMesh) {
+					return;
+				}
+				this.scene.add(islandGltf.scene);
+
+				grassGltf.scene.traverse((child) => {
 					if (child instanceof THREE.Mesh) {
 						if (child.name.includes("LOD00")) {
 							child.geometry.scale(5, 5, 5);
@@ -437,8 +449,9 @@ export class FluffyGrass {
 					this.canvas,
 					() => this.pauseTransportForOrbExternalOpen()
 				);
+			}).catch((error) => {
+				console.error("Failed to load scene models", error);
 			});
-		});
 
 
 	}
