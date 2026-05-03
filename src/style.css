@@ -216,8 +216,11 @@ nav a img{
   text-decoration: underline;
 }
 
-/* Popup Modal Styles */
+/* Popup Modal Styles — ease-out-quart for screen enter/exit; 250ms open / 200ms close via .show cascade */
 .popup-overlay {
+  --popup-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --popup-dur-open: 250ms;
+  --popup-dur-close: 200ms;
   position: fixed;
   top: 0;
   left: 0;
@@ -230,13 +233,18 @@ nav a img{
   align-items: center;
   opacity: 0;
   pointer-events: none;
-  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition:
+    opacity var(--popup-dur-close) var(--popup-ease-out),
+    background-color var(--popup-dur-close) var(--popup-ease-out);
 }
 
 .popup-overlay.show {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.7);
   pointer-events: auto;
+  transition:
+    opacity var(--popup-dur-open) var(--popup-ease-out),
+    background-color var(--popup-dur-open) var(--popup-ease-out);
 }
 
 .popup-content {
@@ -249,12 +257,30 @@ nav a img{
   overflow-y: auto;
   position: relative;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  transform: scale(0.9) translateY(20px);
-  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transform: scale(0.97) translateY(12px);
+  transition: transform var(--popup-dur-close) var(--popup-ease-out);
 }
 
 .popup-overlay.show .popup-content {
   transform: scale(1) translateY(0);
+  transition: transform var(--popup-dur-open) var(--popup-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-overlay,
+  .popup-overlay.show,
+  .popup-content,
+  .popup-overlay.show .popup-content {
+    transition-duration: 0.01ms;
+  }
+
+  .popup-content {
+    transform: none;
+  }
+
+  .popup-overlay.show .popup-content {
+    transform: none;
+  }
 }
 
 .popup-close {
