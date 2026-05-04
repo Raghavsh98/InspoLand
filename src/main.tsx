@@ -283,6 +283,10 @@ export class FluffyGrass {
 		if (!t) {
 			return false;
 		}
+		/* Transport icon buttons keep focus after mouse click; still honor P / S / etc. */
+		if (t.closest(".scene-transport__icon-btn")) {
+			return false;
+		}
 		if (t.isContentEditable || t.closest("[contenteditable='true']")) {
 			return true;
 		}

@@ -1,8 +1,9 @@
 import type { GUI } from "dat.gui";
 
 /** Landing motion: enter → hold → exit (see `runScatterHeroIntroMotion`). */
+const SCATTER_HERO_START_DELAY_MS = 1700;
 const SCATTER_HERO_ENTER_MS = 1000;
-const SCATTER_HERO_HOLD_MS = 1000;
+const SCATTER_HERO_HOLD_MS = 1500;
 const SCATTER_HERO_EXIT_MS = 500;
 const SCATTER_HERO_SLIDE_PX = 72;
 
@@ -22,28 +23,40 @@ function runScatterHeroIntroMotion(
 		wrap.style.transform = `translateY(${SCATTER_HERO_SLIDE_PX}px)`;
 	}
 
-	requestAnimationFrame(() => {
+	const startEnter = () => {
 		requestAnimationFrame(() => {
-			wrap.style.transition = reduced
-				? `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out`
-				: `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out, transform ${SCATTER_HERO_ENTER_MS}ms ease-out`;
-			wrap.style.opacity = "1";
-			if (!reduced) {
-				wrap.style.transform = "translateY(0)";
-			}
+			requestAnimationFrame(() => {
+				wrap.style.transition = reduced
+					? `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out`
+					: `opacity ${SCATTER_HERO_ENTER_MS}ms ease-out, transform ${SCATTER_HERO_ENTER_MS}ms ease-out`;
+				wrap.style.opacity = "1";
+				if (!reduced) {
+					wrap.style.transform = "translateY(0)";
+				}
+			});
 		});
-	});
 
-	window.setTimeout(() => {
-		wrap.style.transition = `opacity ${SCATTER_HERO_EXIT_MS}ms ease-out`;
-		wrap.style.opacity = "0";
-	}, SCATTER_HERO_ENTER_MS + SCATTER_HERO_HOLD_MS);
+		const t0 =
+			SCATTER_HERO_START_DELAY_MS +
+			SCATTER_HERO_ENTER_MS +
+			SCATTER_HERO_HOLD_MS;
+		window.setTimeout(() => {
+			wrap.style.transition = `opacity ${SCATTER_HERO_EXIT_MS}ms ease-out`;
+			wrap.style.opacity = "0";
+		}, t0);
 
-	window.setTimeout(() => {
-		wrap.style.transition = "";
-		root.style.display = "none";
-		onExitComplete();
-	}, SCATTER_HERO_ENTER_MS + SCATTER_HERO_HOLD_MS + SCATTER_HERO_EXIT_MS);
+		window.setTimeout(() => {
+			wrap.style.transition = "";
+			root.style.display = "none";
+			onExitComplete();
+		}, t0 + SCATTER_HERO_EXIT_MS);
+	};
+
+	if (SCATTER_HERO_START_DELAY_MS > 0) {
+		window.setTimeout(startEnter, SCATTER_HERO_START_DELAY_MS);
+	} else {
+		startEnter();
+	}
 }
 
 /** Match layout tweaks (stacked headline on small screens). */
