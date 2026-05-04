@@ -651,6 +651,39 @@ body:not(.gui-theme-light) #designer-notes-link {
   outline: none;
 }
 
+/* Feedback states (success / error) — replaces the whole form */
+.fg-url-input-group--feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.fg-url-input-group--success {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fg-url-input-group--error {
+  color: rgba(255, 120, 120, 0.95);
+}
+
+/* Light chrome overrides */
+.dg.main.gui-theme-light .fg-url-input-group--success,
+.console-theme-floating.is-gui-theme-light .fg-url-input-group--success {
+  color: rgba(30, 30, 30, 0.85);
+}
+
+.dg.main.gui-theme-light .fg-url-input-group--error,
+.console-theme-floating.is-gui-theme-light .fg-url-input-group--error {
+  color: rgba(180, 40, 40, 0.9);
+}
+
 .fg-url-input-group__field {
   flex: 1 1 auto;
   min-width: 0;

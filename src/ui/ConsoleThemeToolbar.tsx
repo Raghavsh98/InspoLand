@@ -3,6 +3,7 @@ import { Link, Moon, Plus, Sun } from "lucide-react";
 import { IconButton } from "./IconButton";
 
 export type GuiConsoleTheme = "dark" | "light";
+export type UrlSubmitState = "idle" | "submitting" | "success" | "error";
 
 /** Dispatched on URL row submit; `event.detail` is `{ url: string }`. */
 export const FLUFFYGRASS_URL_SUBMIT_EVENT = "fluffygrass:url-submit";
@@ -15,6 +16,10 @@ export type ConsoleThemeToolbarProps = {
 	onRequestUrlSubmitExpand: () => void;
 	urlDraft: string;
 	onUrlDraftChange: (value: string) => void;
+	onSubmitUrl: (url: string) => void;
+	onCollapseUrlRow: () => void;
+	submitState: UrlSubmitState;
+	feedbackMessage?: string;
 	/** Only one toolbar instance should autofocus (e.g. floating vs in-panel). */
 	autofocusUrlInput?: boolean;
 };
@@ -26,25 +31,76 @@ export function ConsoleThemeToolbar({
 	onRequestUrlSubmitExpand,
 	urlDraft,
 	onUrlDraftChange,
+	onSubmitUrl,
+	onCollapseUrlRow,
+	submitState,
+	feedbackMessage = "",
 	autofocusUrlInput = false,
 }: ConsoleThemeToolbarProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useLayoutEffect(() => {
-		if (urlSubmitExpanded && autofocusUrlInput) {
+		if (urlSubmitExpanded && autofocusUrlInput && submitState === "idle") {
 			inputRef.current?.focus();
 		}
-	}, [urlSubmitExpanded, autofocusUrlInput]);
+	}, [urlSubmitExpanded, autofocusUrlInput, submitState]);
 
-	const onSubmitUrl = (e: FormEvent<HTMLFormElement>) => {
+	const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		const url = urlDraft.trim();
-		console.log("[FluffyGrass] URL submit (preview)", url);
-		window.dispatchEvent(
-			new CustomEvent(FLUFFYGRASS_URL_SUBMIT_EVENT, {
-				bubbles: true,
-				detail: { url },
-			})
+		if (!url || submitState === "submitting") return;
+		onSubmitUrl(url);
+	};
+
+	const renderUrlRowContent = () => {
+		if (submitState === "success") {
+			return (
+				<div className="fg-url-input-group fg-url-input-group--feedback fg-url-input-group--success">
+					{feedbackMessage || "Submitted for Approval!"}
+				</div>
+			);
+		}
+		if (submitState === "error") {
+			return (
+				<div className="fg-url-input-group fg-url-input-group--feedback fg-url-input-group--error">
+					{feedbackMessage || "Failed to submit"}
+				</div>
+			);
+		}
+		return (
+			<form
+				className="fg-url-input-group"
+				noValidate
+				onSubmit={handleSubmit}
+				aria-label="Link URL"
+			>
+				<span
+					className="fg-url-input-group__addon fg-url-input-group__addon--leading"
+					aria-hidden
+				>
+					<Link size={14} strokeWidth={2} />
+				</span>
+				<input
+					ref={inputRef}
+					type="url"
+					name="fluffygrass-url"
+					className="fg-url-input-group__field"
+					placeholder="Submit a URL"
+					autoComplete="off"
+					spellCheck={false}
+					value={urlDraft}
+					onChange={(ev) => onUrlDraftChange(ev.target.value)}
+					aria-label="Page or asset URL"
+					disabled={submitState === "submitting"}
+				/>
+				<button
+					type="submit"
+					className="fg-url-input-group__addon fg-url-input-group__addon--trailing"
+					disabled={submitState === "submitting"}
+				>
+					{submitState === "submitting" ? "…" : "Send"}
+				</button>
+			</form>
 		);
 	};
 
@@ -82,37 +138,7 @@ export function ConsoleThemeToolbar({
 					}
 					aria-hidden={!urlSubmitExpanded}
 				>
-					<form
-						className="fg-url-input-group"
-						noValidate
-						onSubmit={onSubmitUrl}
-						aria-label="Link URL"
-					>
-						<span
-							className="fg-url-input-group__addon fg-url-input-group__addon--leading"
-							aria-hidden
-						>
-							<Link size={14} strokeWidth={2} />
-						</span>
-						<input
-							ref={inputRef}
-							type="url"
-							name="fluffygrass-url"
-							className="fg-url-input-group__field"
-							placeholder="Submit a URL"
-							autoComplete="off"
-							spellCheck={false}
-							value={urlDraft}
-							onChange={(ev) => onUrlDraftChange(ev.target.value)}
-							aria-label="Page or asset URL"
-						/>
-						<button
-							type="submit"
-							className="fg-url-input-group__addon fg-url-input-group__addon--trailing"
-						>
-							Send
-						</button>
-					</form>
+					{renderUrlRowContent()}
 				</div>
 			</div>
 			<IconButton

@@ -555,28 +555,66 @@ export class FluffyGrass {
 		let themeForToolbar: "dark" | "light" = "dark";
 		let urlSubmitExpanded = false;
 		let urlDraft = "";
+		let urlSubmitState: import("./ui/ConsoleThemeToolbar").UrlSubmitState = "idle";
+		let urlFeedbackMessage = "";
 
 		const skyModeForGuiTheme = (theme: "dark" | "light") =>
 			theme === "light" ? "day" : "night";
 
 		let renderThemeToolbars: () => void;
 
+		const collapseUrlSubmitRow = () => {
+			urlSubmitExpanded = false;
+			urlDraft = "";
+			urlSubmitState = "idle";
+			urlFeedbackMessage = "";
+			renderThemeToolbars();
+		};
+
 		const requestUrlSubmitExpand = () => {
 			if (!urlSubmitExpanded) {
 				urlSubmitExpanded = true;
+				urlSubmitState = "idle";
 				renderThemeToolbars();
 			}
 		};
 
 		const collapseUrlSubmitIfEmpty = () => {
-			if (!urlSubmitExpanded || urlDraft.trim() !== "") return;
-			urlSubmitExpanded = false;
-			urlDraft = "";
+			if (!urlSubmitExpanded || urlDraft.trim() !== "" || urlSubmitState !== "idle") return;
+			collapseUrlSubmitRow();
+		};
+
+		const handleUrlSubmit = async (url: string) => {
+			urlSubmitState = "submitting";
 			renderThemeToolbars();
+			try {
+				const res = await fetch("/api/submit", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ url }),
+				});
+				if (res.ok) {
+					urlFeedbackMessage = "Submitted for Approval!";
+					urlSubmitState = "success";
+					renderThemeToolbars();
+					setTimeout(collapseUrlSubmitRow, 1000);
+				} else {
+					const body = await res.json().catch(() => ({})) as { error?: string };
+					urlFeedbackMessage = body.error ?? "Failed to submit";
+					urlSubmitState = "error";
+					renderThemeToolbars();
+					setTimeout(collapseUrlSubmitRow, 1000);
+				}
+			} catch {
+				urlFeedbackMessage = "Failed to submit";
+				urlSubmitState = "error";
+				renderThemeToolbars();
+				setTimeout(collapseUrlSubmitRow, 1000);
+			}
 		};
 
 		const onPointerDownMaybeCollapseUrlRow = (e: PointerEvent) => {
-			if (!urlSubmitExpanded || urlDraft.trim() !== "") return;
+			if (!urlSubmitExpanded || urlDraft.trim() !== "" || urlSubmitState !== "idle") return;
 			const t = e.target;
 			if (!(t instanceof Node)) return;
 			for (const slot of document.querySelectorAll(".gui-console-theme-add-slot")) {
@@ -597,6 +635,10 @@ export class FluffyGrass {
 					urlDraft = value;
 					renderThemeToolbars();
 				},
+				onSubmitUrl: handleUrlSubmit,
+				onCollapseUrlRow: collapseUrlSubmitRow,
+				submitState: urlSubmitState,
+				feedbackMessage: urlFeedbackMessage,
 			};
 			inPanelRoot.render(
 				<ConsoleThemeToolbar {...toolbarProps} autofocusUrlInput={false} />
