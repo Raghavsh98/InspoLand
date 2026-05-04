@@ -214,6 +214,34 @@ nav a img{
   height: 52px;
 }
 
+/* Play ↔ Pause: stacked cross-fade (opacity + scale), ≤150ms ease-in-out */
+.scene-transport__play-morph {
+  position: relative;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene-transport__play-morph-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
+}
+
+.scene-transport__play-morph-icon--active {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .scene-transport .scene-transport__icon-btn:hover {
   background: var(--icon-hover-tint-on-dark);
 }
@@ -496,6 +524,10 @@ body:not(.gui-theme-light) #designer-notes-link {
   position: static;
   top: auto;
   right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: calc(100vw - 28px);
   background: transparent;
   border: none;
   outline: none;
@@ -548,12 +580,15 @@ body:not(.gui-theme-light) #designer-notes-link {
   right: 6px;
   z-index: 1003;
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 2px;
   padding: 2px;
   border-radius: 4px;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: none;
+  max-width: calc(100vw - 24px);
 }
 
 .dg.main.gui-theme-light .gui-console-theme-toolbar {
@@ -566,33 +601,96 @@ body:not(.gui-theme-light) #designer-notes-link {
   display: contents;
 }
 
-/* Plus → URL row: cross-fade (~250ms); expanded width for inline input group */
-.gui-console-theme-add-slot {
-  position: relative;
-  display: flex;
-  align-items: center;
-  align-self: center;
+/* Theme toggle stays at trailing edge; URL slot flexes leftward only */
+.gui-console-theme-toolbar > .icon-btn.gui-console-theme-icon-btn:last-child {
   flex-shrink: 0;
 }
 
-.gui-console-theme-add-slot[data-expanded='true'] {
-  min-width: min(220px, calc(100vw - 120px));
+/* Plus ↔ URL row: horizontal morph (opacity + scaleX), anchored to theme-toggle edge — no vertical slide */
+.gui-console-theme-add-slot {
+  position: relative;
+  align-self: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.gui-console-theme-add-layer {
+.gui-console-theme-add-slot[data-expanded='true'] {
+  width: min(220px, calc(100vw - 120px));
+}
+
+.gui-console-theme-add-slot > .gui-console-theme-add-layer {
   display: flex;
   align-items: center;
-  opacity: 1;
+  justify-content: flex-start;
+  min-width: 0;
+  opacity: 0;
+  transform-origin: right center;
+  transform: scaleX(0.92);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
 }
 
-.gui-console-theme-add-layer--hidden {
-  opacity: 0;
-  pointer-events: none;
+.gui-console-theme-add-slot > .gui-console-theme-add-layer:not(.gui-console-theme-add-layer--active) {
   position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: max-content;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  left: auto;
+}
+
+.gui-console-theme-add-slot > .gui-console-theme-add-layer--active {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  transform: scaleX(1);
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.gui-console-theme-add-slot[data-expanded='true'] > .gui-console-theme-add-layer--url.gui-console-theme-add-layer--active {
+  width: 100%;
+}
+
+/* Form ↔ feedback message: same-cell grid cross-fade */
+.fg-url-morph-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  width: 100%;
+  min-height: 28px;
+}
+
+.fg-url-morph-pane {
+  grid-area: 1 / 1;
+  width: 100%;
+  min-width: 0;
+  opacity: 0;
+  transform-origin: right center;
+  transform: scaleX(0.94);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
+}
+
+.fg-url-morph-pane--active {
+  opacity: 1;
+  transform: scaleX(1);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.fg-url-morph-pane--editor .fg-url-input-group,
+.fg-url-morph-pane--feedback .fg-url-input-group {
+  width: 100%;
 }
 
 /* URL row: outer capsule only — no internal vertical borders; Send as inset chip */
@@ -611,9 +709,11 @@ body:not(.gui-theme-light) #designer-notes-link {
   transition: box-shadow 0.15s ease;
 }
 
+/* Inset ring only: ancestor `.gui-console-theme-add-slot` uses overflow:hidden; outer box-shadow
+   clips as a rectangle and leaves rough corners on this pill. */
 .fg-url-input-group:focus-within {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
 }
 
 .fg-url-input-group__addon {
@@ -711,7 +811,7 @@ body:not(.gui-theme-light) #designer-notes-link {
 }
 
 .dg.main.gui-theme-light .fg-url-input-group:focus-within {
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.2);
 }
 
 .dg.main.gui-theme-light .fg-url-input-group__addon--leading {
@@ -753,7 +853,7 @@ body:not(.gui-theme-light) #designer-notes-link {
 }
 
 .console-theme-floating.is-gui-theme-light .fg-url-input-group:focus-within {
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.2);
 }
 
 .console-theme-floating.is-gui-theme-light .fg-url-input-group__addon--leading {
@@ -784,7 +884,7 @@ body:not(.gui-theme-light) #designer-notes-link {
 }
 
 .console-theme-floating:not(.is-gui-theme-light) .fg-url-input-group:focus-within {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
 }
 
 /* Icon-only console theme controls (Plus + day/night toggle: Moon=current dark, Sun=current light) */
@@ -959,7 +1059,9 @@ body:not(.gui-theme-light) #designer-notes-link {
   .dg.main .property-name,
   .gui-console-theme-btn,
   .icon-btn,
-  .gui-console-theme-add-layer {
+  .gui-console-theme-add-slot > .gui-console-theme-add-layer,
+  .scene-transport__play-morph-icon,
+  .fg-url-morph-pane {
     transition-duration: 0.01ms;
   }
 }

@@ -26,7 +26,24 @@ export function SceneTransportBar({
 				}
 				onClick={onTogglePlay}
 			>
-				{playing ? <Pause size={20} strokeWidth={2} /> : <Play size={20} strokeWidth={2} />}
+				<span className="scene-transport__play-morph" aria-hidden>
+					<span
+						className={
+							"scene-transport__play-morph-icon" +
+							(playing ? "" : " scene-transport__play-morph-icon--active")
+						}
+					>
+						<Play size={20} strokeWidth={2} />
+					</span>
+					<span
+						className={
+							"scene-transport__play-morph-icon" +
+							(playing ? " scene-transport__play-morph-icon--active" : "")
+						}
+					>
+						<Pause size={20} strokeWidth={2} />
+					</span>
+				</span>
 			</IconButton>
 			{playing ? (
 				<IconButton

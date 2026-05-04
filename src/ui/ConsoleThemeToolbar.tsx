@@ -32,7 +32,7 @@ export function ConsoleThemeToolbar({
 	urlDraft,
 	onUrlDraftChange,
 	onSubmitUrl,
-	onCollapseUrlRow,
+	onCollapseUrlRow: _onCollapseUrlRow,
 	submitState,
 	feedbackMessage = "",
 	autofocusUrlInput = false,
@@ -52,57 +52,83 @@ export function ConsoleThemeToolbar({
 		onSubmitUrl(url);
 	};
 
-	const renderUrlRowContent = () => {
-		if (submitState === "success") {
-			return (
-				<div className="fg-url-input-group fg-url-input-group--feedback fg-url-input-group--success">
-					{feedbackMessage || "Submitted for Approval!"}
-				</div>
-			);
-		}
-		if (submitState === "error") {
-			return (
-				<div className="fg-url-input-group fg-url-input-group--feedback fg-url-input-group--error">
-					{feedbackMessage || "Failed to submit"}
-				</div>
-			);
-		}
-		return (
-			<form
-				className="fg-url-input-group"
-				noValidate
-				onSubmit={handleSubmit}
-				aria-label="Link URL"
+	const editorVisible =
+		submitState === "idle" || submitState === "submitting";
+	const feedbackVisible = submitState === "success" || submitState === "error";
+	const feedbackTone =
+		submitState === "success" ? "success" : submitState === "error" ? "error" : null;
+
+	const renderUrlRowContent = () => (
+		<div className="fg-url-morph-stack">
+			<div
+				className={
+					"fg-url-morph-pane fg-url-morph-pane--editor" +
+					(editorVisible ? " fg-url-morph-pane--active" : "")
+				}
+				aria-hidden={!editorVisible}
 			>
-				<span
-					className="fg-url-input-group__addon fg-url-input-group__addon--leading"
-					aria-hidden
+				<form
+					className="fg-url-input-group"
+					noValidate
+					onSubmit={handleSubmit}
+					aria-label="Link URL"
 				>
-					<Link size={14} strokeWidth={2} />
-				</span>
-				<input
-					ref={inputRef}
-					type="url"
-					name="fluffygrass-url"
-					className="fg-url-input-group__field"
-					placeholder="Submit a URL"
-					autoComplete="off"
-					spellCheck={false}
-					value={urlDraft}
-					onChange={(ev) => onUrlDraftChange(ev.target.value)}
-					aria-label="Page or asset URL"
-					disabled={submitState === "submitting"}
-				/>
-				<button
-					type="submit"
-					className="fg-url-input-group__addon fg-url-input-group__addon--trailing"
-					disabled={submitState === "submitting"}
+					<span
+						className="fg-url-input-group__addon fg-url-input-group__addon--leading"
+						aria-hidden
+					>
+						<Link size={14} strokeWidth={2} />
+					</span>
+					<input
+						ref={inputRef}
+						type="url"
+						name="fluffygrass-url"
+						className="fg-url-input-group__field"
+						placeholder="Submit a URL"
+						autoComplete="off"
+						spellCheck={false}
+						value={urlDraft}
+						onChange={(ev) => onUrlDraftChange(ev.target.value)}
+						aria-label="Page or asset URL"
+						disabled={submitState === "submitting"}
+					/>
+					<button
+						type="submit"
+						className="fg-url-input-group__addon fg-url-input-group__addon--trailing"
+						disabled={submitState === "submitting"}
+					>
+						{submitState === "submitting" ? "…" : "Send"}
+					</button>
+				</form>
+			</div>
+			<div
+				className={
+					"fg-url-morph-pane fg-url-morph-pane--feedback" +
+					(feedbackVisible ? " fg-url-morph-pane--active" : "") +
+					(feedbackTone === "success"
+						? " fg-url-morph-pane--feedback-success"
+						: "") +
+					(feedbackTone === "error" ? " fg-url-morph-pane--feedback-error" : "")
+				}
+				aria-hidden={!feedbackVisible}
+				role="status"
+			>
+				<div
+					className={
+						"fg-url-input-group fg-url-input-group--feedback" +
+						(feedbackTone === "success" ? " fg-url-input-group--success" : "") +
+						(feedbackTone === "error" ? " fg-url-input-group--error" : "")
+					}
 				>
-					{submitState === "submitting" ? "…" : "Send"}
-				</button>
-			</form>
-		);
-	};
+					{submitState === "success"
+						? feedbackMessage || "Submitted for Approval!"
+						: submitState === "error"
+							? feedbackMessage || "Failed to submit"
+							: ""}
+				</div>
+			</div>
+		</div>
+	);
 
 	return (
 		<>
@@ -113,7 +139,7 @@ export function ConsoleThemeToolbar({
 				<div
 					className={
 						"gui-console-theme-add-layer gui-console-theme-add-layer--plus" +
-						(urlSubmitExpanded ? " gui-console-theme-add-layer--hidden" : "")
+						(!urlSubmitExpanded ? " gui-console-theme-add-layer--active" : "")
 					}
 					aria-hidden={urlSubmitExpanded}
 				>
@@ -134,7 +160,7 @@ export function ConsoleThemeToolbar({
 				<div
 					className={
 						"gui-console-theme-add-layer gui-console-theme-add-layer--url" +
-						(urlSubmitExpanded ? "" : " gui-console-theme-add-layer--hidden")
+						(urlSubmitExpanded ? " gui-console-theme-add-layer--active" : "")
 					}
 					aria-hidden={!urlSubmitExpanded}
 				>
