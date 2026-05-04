@@ -887,7 +887,7 @@ body:not(.gui-theme-light) #designer-notes-link {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
 }
 
-/* Icon-only console theme controls (Plus + day/night toggle: Moon=current dark, Sun=current light) */
+/* Icon-only console theme controls (Plus + day/night: Moon → dark mode, Sun → light mode) */
 .gui-console-theme-icon-btn {
   width: 30px;
   height: 26px;

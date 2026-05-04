@@ -187,9 +187,9 @@ export function ConsoleThemeToolbar({
 				}}
 			>
 				{theme === "dark" ? (
-					<Moon size={18} strokeWidth={2} />
-				) : (
 					<Sun size={18} strokeWidth={2} />
+				) : (
+					<Moon size={18} strokeWidth={2} />
 				)}
 			</IconButton>
 		</>
