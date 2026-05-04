@@ -26,22 +26,27 @@ export function SceneTransportBar({
 				}
 				onClick={onTogglePlay}
 			>
-				<span className="scene-transport__play-morph" aria-hidden>
-					<span
-						className={
-							"scene-transport__play-morph-icon" +
-							(playing ? "" : " scene-transport__play-morph-icon--active")
-						}
-					>
-						<Play size={20} strokeWidth={2} />
+				<span className="fg-icon-btn-shortcut">
+					<span className="scene-transport__play-morph" aria-hidden>
+						<span
+							className={
+								"scene-transport__play-morph-icon" +
+								(playing ? "" : " scene-transport__play-morph-icon--active")
+							}
+						>
+							<Play size={20} strokeWidth={2} />
+						</span>
+						<span
+							className={
+								"scene-transport__play-morph-icon" +
+								(playing ? " scene-transport__play-morph-icon--active" : "")
+							}
+						>
+							<Pause size={20} strokeWidth={2} />
+						</span>
 					</span>
-					<span
-						className={
-							"scene-transport__play-morph-icon" +
-							(playing ? " scene-transport__play-morph-icon--active" : "")
-						}
-					>
-						<Pause size={20} strokeWidth={2} />
+					<span className="fg-icon-btn-shortcut__hint" aria-hidden>
+						P
 					</span>
 				</span>
 			</IconButton>
@@ -54,11 +59,16 @@ export function SceneTransportBar({
 					}
 					onClick={onToggleMute}
 				>
-					{muted ? (
-						<VolumeX size={20} strokeWidth={2} />
-					) : (
-						<Volume2 size={20} strokeWidth={2} />
-					)}
+					<span className="fg-icon-btn-shortcut">
+						{muted ? (
+							<VolumeX size={20} strokeWidth={2} />
+						) : (
+							<Volume2 size={20} strokeWidth={2} />
+						)}
+						<span className="fg-icon-btn-shortcut__hint" aria-hidden>
+							S
+						</span>
+					</span>
 				</IconButton>
 			) : null}
 		</>

@@ -154,7 +154,12 @@ export function ConsoleThemeToolbar({
 							requestAnimationFrame(() => el.blur());
 						}}
 					>
-						<Plus size={18} strokeWidth={2} />
+						<span className="fg-icon-btn-shortcut">
+							<Plus size={18} strokeWidth={2} />
+							<span className="fg-icon-btn-shortcut__hint" aria-hidden>
+								A
+							</span>
+						</span>
 					</IconButton>
 				</div>
 				<div
@@ -186,11 +191,16 @@ export function ConsoleThemeToolbar({
 					requestAnimationFrame(() => el.blur());
 				}}
 			>
-				{theme === "dark" ? (
-					<Sun size={18} strokeWidth={2} />
-				) : (
-					<Moon size={18} strokeWidth={2} />
-				)}
+				<span className="fg-icon-btn-shortcut">
+					{theme === "dark" ? (
+						<Sun size={18} strokeWidth={2} />
+					) : (
+						<Moon size={18} strokeWidth={2} />
+					)}
+					<span className="fg-icon-btn-shortcut__hint" aria-hidden>
+						M
+					</span>
+				</span>
 			</IconButton>
 		</>
 	);

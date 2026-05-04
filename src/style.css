@@ -172,6 +172,28 @@ nav a img{
   display: block;
 }
 
+/* Keyboard shortcut hint: single letter, bottom-right of icon (10px monospace). */
+.fg-icon-btn-shortcut {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fg-icon-btn-shortcut__hint {
+  position: absolute;
+  right: -5px;
+  bottom: -9px;
+  font-family: ui-monospace, "SF Mono", "Menlo", Monaco, "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  pointer-events: none;
+  color: currentColor;
+  opacity: 0.95;
+}
+
 /* Bottom-center playback: auto-orbit + music; mute only shown while auto-rotate (play) is on. */
 .scene-transport {
   position: fixed;
