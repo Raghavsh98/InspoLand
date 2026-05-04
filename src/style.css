@@ -6,6 +6,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Connection III';
+  src: url('/fonts/ConnectionIii-Rj3W.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 *{
   padding: 0;
   margin: 0;
@@ -26,6 +34,43 @@ body,html{
   top: 0;
   left: 0;
 }
+
+:root {
+  /* Lucide icons use currentColor — dark GUI / glass: muted grey; light GUI / OS-light: pure white */
+  --icon-fg-on-dark-chrome: rgba(255, 255, 255, 0.62);
+  --icon-fg-on-light-chrome: #ffffff;
+  --icon-hover-tint-on-dark: rgba(255, 255, 255, 0.05);
+  --icon-hover-tint-on-light: rgba(0, 0, 0, 0.05);
+}
+
+.scatter-text-hero {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 800;
+  pointer-events: none;
+  /* Alpha-over the scene makes soft edges look like a dark ring; this adds light instead. */
+  mix-blend-mode: plus-lighter;
+}
+
+.scatter-text-hero__wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+#scatter-text-canvas {
+  display: block;
+  max-width: min(96vw, 1400px);
+  max-height: min(58vh, 720px);
+  width: auto;
+  height: auto;
+  background: transparent;
+}
 nav{
   position: fixed;
   bottom: 0;
@@ -42,7 +87,7 @@ nav a{
   font-size: 1rem;
   font-weight: 600;
   border-radius: 5px;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 }
 nav a:hover{
   opacity: 0.7;
@@ -66,7 +111,7 @@ nav a img{
 .credits a{
   color: #5b5b5b;
   text-decoration: none;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 }
 .credits a:hover{
   color: #718f74;
@@ -91,7 +136,7 @@ nav a img{
   border: none;
   background-color: #000000;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease;
 }
 .randomizeButton:hover{
   color: #718f74;
@@ -99,6 +144,184 @@ nav a img{
 .randomizeButton:active{
   background-color: #000000;
   opacity: 0.7;
+}
+
+/* Lucide icon buttons: square hit target; 4px radius + 5% tint appears on :hover only */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  line-height: 0;
+  border-radius: 0;
+  transition:
+    border-radius 0.12s ease,
+    transform 0.15s ease;
+}
+
+.icon-btn:hover {
+  border-radius: 4px;
+}
+
+.icon-btn svg {
+  display: block;
+}
+
+/* Keyboard shortcut hint: single letter, bottom-right of icon (10px monospace). */
+.fg-icon-btn-shortcut {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fg-icon-btn-shortcut__hint {
+  position: absolute;
+  right: -7px;
+  bottom: -9px;
+  font-family: ui-monospace, "SF Mono", "Menlo", Monaco, "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  pointer-events: none;
+  color: currentColor;
+  opacity: 0.95;
+}
+
+/* Bottom-center playback: auto-orbit + music; mute only shown while auto-rotate (play) is on. */
+.scene-transport {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2000;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.scene-transport:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.scene-transport__react-mount {
+  display: contents;
+}
+
+/* Lucide: stroke uses currentColor — default dark-GUI grey; OS-light or body.gui-theme-light → white */
+.scene-transport .scene-transport__icon-btn {
+  width: 48px;
+  height: 48px;
+  color: var(--icon-fg-on-dark-chrome);
+  background: transparent;
+  outline: none;
+}
+
+.scene-transport .scene-transport__icon-btn--primary {
+  width: 52px;
+  height: 52px;
+}
+
+/* Play ↔ Pause: stacked cross-fade (opacity + scale), ≤150ms ease-in-out */
+.scene-transport__play-morph {
+  position: relative;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene-transport__play-morph-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
+}
+
+.scene-transport__play-morph-icon--active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scene-transport .scene-transport__icon-btn:hover {
+  background: var(--icon-hover-tint-on-dark);
+}
+
+.scene-transport .scene-transport__icon-btn:active {
+  transform: scale(0.97);
+}
+
+.scene-transport .scene-transport__icon-btn:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.scene-transport .scene-transport__icon-btn:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38);
+}
+
+@media (prefers-color-scheme: light) {
+  .scene-transport .scene-transport__icon-btn {
+    color: var(--icon-fg-on-light-chrome);
+    background: transparent;
+  }
+
+  .scene-transport .scene-transport__icon-btn:hover {
+    background: var(--icon-hover-tint-on-light);
+  }
+
+  .scene-transport .scene-transport__icon-btn:focus-visible {
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.22);
+  }
+}
+
+/* Dark GUI: grey transport icons even when OS prefers light */
+body:not(.gui-theme-light) .scene-transport .scene-transport__icon-btn {
+  color: var(--icon-fg-on-dark-chrome);
+}
+
+body:not(.gui-theme-light) .scene-transport .scene-transport__icon-btn:hover {
+  background: var(--icon-hover-tint-on-dark);
+}
+
+body:not(.gui-theme-light) .scene-transport .scene-transport__icon-btn:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.38);
+}
+
+body.gui-theme-light .scene-transport .scene-transport__icon-btn {
+  color: var(--icon-fg-on-light-chrome);
+  background: transparent;
+}
+
+body.gui-theme-light .scene-transport .scene-transport__icon-btn:hover {
+  background: var(--icon-hover-tint-on-light);
+}
+
+body.gui-theme-light .scene-transport .scene-transport__icon-btn:focus-visible {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.22);
 }
 
 .camera-panel {
@@ -153,34 +376,32 @@ nav a img{
   font-weight: 300;
   color: #888888;
   z-index: 1000;
-  pointer-events: none;
-}
-
-.top-right-text {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  font-family: 'Garamond', 'Times New Roman', serif;
-  font-style: italic;
-  font-size: 12px;
-  font-weight: 300;
-  color: #888888;
-  z-index: 1000;
   pointer-events: auto;
 }
 
-.top-right-text a {
+.top-left-text a {
   color: #888888;
   text-decoration: none;
-  transition: all 0.3s ease;
 }
 
-.top-right-text a:hover {
+.top-left-text a:hover {
   text-decoration: underline;
 }
 
-/* Popup Modal Styles */
+/* Matches GUI day/night (body.gui-theme-light toggled with panel in main). */
+body.gui-theme-light #designer-notes-link {
+  color: #ffffff;
+}
+
+body:not(.gui-theme-light) #designer-notes-link {
+  color: var(--icon-fg-on-dark-chrome);
+}
+
+/* Popup Modal Styles — ease-out-quart for screen enter/exit; 250ms open / 200ms close via .show cascade */
 .popup-overlay {
+  --popup-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --popup-dur-open: 250ms;
+  --popup-dur-close: 200ms;
   position: fixed;
   top: 0;
   left: 0;
@@ -193,13 +414,18 @@ nav a img{
   align-items: center;
   opacity: 0;
   pointer-events: none;
-  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition:
+    opacity var(--popup-dur-close) var(--popup-ease-out),
+    background-color var(--popup-dur-close) var(--popup-ease-out);
 }
 
 .popup-overlay.show {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.7);
   pointer-events: auto;
+  transition:
+    opacity var(--popup-dur-open) var(--popup-ease-out),
+    background-color var(--popup-dur-open) var(--popup-ease-out);
 }
 
 .popup-content {
@@ -212,12 +438,30 @@ nav a img{
   overflow-y: auto;
   position: relative;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  transform: scale(0.9) translateY(20px);
-  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transform: scale(0.97) translateY(12px);
+  transition: transform var(--popup-dur-close) var(--popup-ease-out);
 }
 
 .popup-overlay.show .popup-content {
   transform: scale(1) translateY(0);
+  transition: transform var(--popup-dur-open) var(--popup-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-overlay,
+  .popup-overlay.show,
+  .popup-content,
+  .popup-overlay.show .popup-content {
+    transition-duration: 0.01ms;
+  }
+
+  .popup-content {
+    transform: none;
+  }
+
+  .popup-overlay.show .popup-content {
+    transform: none;
+  }
 }
 
 .popup-close {
@@ -286,4 +530,560 @@ nav a img{
   font-size: 12px;
   color: #aaa;
   font-weight: 300;
+}
+
+/* Always-visible console theme pill (dat.GUI is hidden until chord); mirrors in-panel toolbar */
+.console-theme-floating {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  /* Above scene UI (e.g. transport) and canvas stacking so the pill stays clickable */
+  z-index: 12000;
+  pointer-events: auto;
+}
+
+.console-theme-floating .gui-console-theme-toolbar--overlay {
+  position: static;
+  top: auto;
+  right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: calc(100vw - 28px);
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.console-theme-floating .gui-console-theme-toolbar--overlay:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.console-theme-floating .gui-console-theme-toolbar--overlay .gui-console-theme-icon-btn {
+  width: 40px;
+  height: 36px;
+}
+
+/* Light GUI theme: floating pill matches dat.GUI (class toggled on wrapper in JS) */
+.console-theme-floating.is-gui-theme-light .gui-console-theme-toolbar--overlay {
+  background: transparent;
+  box-shadow: none;
+}
+
+.console-theme-floating.is-gui-theme-light .gui-console-theme-icon-btn {
+  color: var(--icon-fg-on-light-chrome);
+}
+
+.console-theme-floating.is-gui-theme-light .gui-console-theme-icon-btn:hover {
+  background: var(--icon-hover-tint-on-light);
+}
+
+.console-theme-floating:not(.is-gui-theme-light) .gui-console-theme-icon-btn {
+  color: var(--icon-fg-on-dark-chrome);
+}
+
+.console-theme-floating:not(.is-gui-theme-light) .gui-console-theme-icon-btn:hover {
+  background: var(--icon-hover-tint-on-dark);
+}
+
+/* dat.GUI console — theme toggle + light palette (--console-theme-transition set from DEFAULT_SKY_TRANSITION_MS in main.ts) */
+.dg.main:has(.gui-console-theme-toolbar) > ul {
+  padding-top: 26px;
+}
+
+.gui-console-theme-toolbar {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 1003;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+  max-width: calc(100vw - 24px);
+}
+
+.dg.main.gui-theme-light .gui-console-theme-toolbar {
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
+}
+
+.gui-console-theme-toolbar-react {
+  display: contents;
+}
+
+/* Theme toggle stays at trailing edge; URL slot flexes leftward only */
+.gui-console-theme-toolbar > .icon-btn.gui-console-theme-icon-btn:last-child {
+  flex-shrink: 0;
+}
+
+/* Plus ↔ URL row: horizontal morph (opacity + scaleX), anchored to theme-toggle edge — no vertical slide */
+.gui-console-theme-add-slot {
+  position: relative;
+  align-self: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gui-console-theme-add-slot[data-expanded='true'] {
+  width: min(220px, calc(100vw - 120px));
+}
+
+.gui-console-theme-add-slot > .gui-console-theme-add-layer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  opacity: 0;
+  transform-origin: right center;
+  transform: scaleX(0.92);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
+}
+
+.gui-console-theme-add-slot > .gui-console-theme-add-layer:not(.gui-console-theme-add-layer--active) {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  left: auto;
+}
+
+.gui-console-theme-add-slot > .gui-console-theme-add-layer--active {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  transform: scaleX(1);
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.gui-console-theme-add-slot[data-expanded='true'] > .gui-console-theme-add-layer--url.gui-console-theme-add-layer--active {
+  width: 100%;
+}
+
+/* Form ↔ feedback message: same-cell grid cross-fade */
+.fg-url-morph-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  width: 100%;
+  min-height: 28px;
+}
+
+.fg-url-morph-pane {
+  grid-area: 1 / 1;
+  width: 100%;
+  min-width: 0;
+  opacity: 0;
+  transform-origin: right center;
+  transform: scaleX(0.94);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    opacity var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1)),
+    transform var(--fg-ui-morph-duration, 150ms) var(--fg-ui-morph-ease, cubic-bezier(0.645, 0.045, 0.355, 1));
+}
+
+.fg-url-morph-pane--active {
+  opacity: 1;
+  transform: scaleX(1);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.fg-url-morph-pane--editor .fg-url-input-group,
+.fg-url-morph-pane--feedback .fg-url-input-group {
+  width: 100%;
+}
+
+/* URL row: outer capsule only — no internal vertical borders; Send as inset chip */
+.fg-url-input-group {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 28px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 3px 3px 3px 6px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.2);
+  transition: box-shadow 0.15s ease;
+}
+
+/* Inset ring only: ancestor `.gui-console-theme-add-slot` uses overflow:hidden; outer box-shadow
+   clips as a rectangle and leaves rough corners on this pill. */
+.fg-url-input-group:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
+}
+
+.fg-url-input-group__addon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+  border: none;
+  margin: 0;
+  font: inherit;
+}
+
+.fg-url-input-group__addon--leading {
+  padding: 0 4px 0 2px;
+  color: var(--icon-fg-on-dark-chrome);
+}
+
+.fg-url-input-group__addon--trailing {
+  margin-inline-start: 4px;
+  padding: 0 12px;
+  min-height: 22px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fg-url-input-group__addon--trailing:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.fg-url-input-group__addon--trailing:focus-visible {
+  outline: none;
+}
+
+/* Feedback states (success / error) — replaces the whole form */
+.fg-url-input-group--feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.fg-url-input-group--success {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fg-url-input-group--error {
+  color: rgba(255, 120, 120, 0.95);
+}
+
+/* Light chrome overrides */
+.dg.main.gui-theme-light .fg-url-input-group--success,
+.console-theme-floating.is-gui-theme-light .fg-url-input-group--success {
+  color: rgba(30, 30, 30, 0.85);
+}
+
+.dg.main.gui-theme-light .fg-url-input-group--error,
+.console-theme-floating.is-gui-theme-light .fg-url-input-group--error {
+  color: rgba(180, 40, 40, 0.9);
+}
+
+.fg-url-input-group__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  margin: 0;
+  padding: 0 4px;
+  font: inherit;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.92);
+  background: transparent;
+  outline: none;
+}
+
+.fg-url-input-group__field::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.fg-url-input-group__field:focus-visible {
+  outline: none;
+}
+
+.dg.main.gui-theme-light .fg-url-input-group {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.dg.main.gui-theme-light .fg-url-input-group:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.dg.main.gui-theme-light .fg-url-input-group__addon--leading {
+  background: transparent;
+  color: #9ca3af;
+}
+
+.dg.main.gui-theme-light .fg-url-input-group__addon--trailing {
+  background: #f0f0f0;
+  color: #1a1a1a;
+}
+
+.dg.main.gui-theme-light .fg-url-input-group__addon--trailing:hover {
+  background: #e6e6e6;
+}
+
+.dg.main.gui-theme-light .fg-url-input-group__field {
+  color: #1a1a1a;
+}
+
+.dg.main.gui-theme-light .fg-url-input-group__field::placeholder {
+  color: rgba(0, 0, 0, 0.38);
+}
+
+.console-theme-floating .fg-url-input-group {
+  min-height: 32px;
+  font-size: 12px;
+  padding: 3px 4px 3px 7px;
+}
+
+.console-theme-floating .fg-url-input-group__addon--trailing {
+  padding: 0 14px;
+  min-height: 24px;
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group__addon--leading {
+  background: transparent;
+  color: #9ca3af;
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group__addon--trailing {
+  background: #f0f0f0;
+  color: #111;
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group__addon--trailing:hover {
+  background: #e6e6e6;
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group__field {
+  color: #111;
+}
+
+.console-theme-floating.is-gui-theme-light .fg-url-input-group__field::placeholder {
+  color: rgba(0, 0, 0, 0.38);
+}
+
+.console-theme-floating:not(.is-gui-theme-light) .fg-url-input-group {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.console-theme-floating:not(.is-gui-theme-light) .fg-url-input-group:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.42);
+}
+
+/* Icon-only console theme controls (Plus + day/night: Moon → dark mode, Sun → light mode) */
+.gui-console-theme-icon-btn {
+  width: 30px;
+  height: 26px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.dg.main:not(.gui-theme-light) .gui-console-theme-icon-btn {
+  color: var(--icon-fg-on-dark-chrome);
+}
+
+.dg.main:not(.gui-theme-light) .gui-console-theme-icon-btn:hover {
+  background: var(--icon-hover-tint-on-dark);
+}
+
+.dg.main.gui-theme-light .gui-console-theme-icon-btn {
+  color: var(--icon-fg-on-light-chrome);
+}
+
+.dg.main.gui-theme-light .gui-console-theme-icon-btn:hover {
+  background: var(--icon-hover-tint-on-light);
+}
+
+.gui-console-theme-btn {
+  font: 10px/1.2 'Lucida Grande', 'Helvetica Neue', sans-serif;
+  padding: 4px 8px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  background: transparent;
+  color: #ccc;
+  transition:
+    color var(--console-theme-transition, 2200ms) ease,
+    border-color var(--console-theme-transition, 2200ms) ease;
+}
+
+.gui-console-theme-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dg.main.gui-theme-light .gui-console-theme-btn {
+  color: #444;
+}
+
+.dg.main.gui-theme-light .gui-console-theme-btn:hover {
+  color: #111;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.gui-console-theme-btn[aria-pressed='true'] {
+  background: rgba(47, 161, 214, 0.35);
+  border-color: rgba(47, 161, 214, 0.6);
+  color: #eaf6fc;
+}
+
+.dg.main.gui-theme-light .gui-console-theme-btn[aria-pressed='true'] {
+  background: rgba(47, 161, 214, 0.2);
+  border-color: rgba(47, 161, 214, 0.55);
+  color: #0a3d5c;
+}
+
+.dg.main,
+.dg.main .dg,
+.dg.main li:not(.folder),
+.dg.main .dg li:not(.folder),
+.dg.main li.title,
+.dg.main .dg li.title,
+.dg.main .c input[type='text'],
+.dg.main .dg .c input[type='text'],
+.dg.main .c .slider,
+.dg.main .dg .c .slider,
+.dg.main .close-button,
+.dg.main .property-name {
+  transition:
+    color var(--console-theme-transition, 2200ms) ease,
+    border-color var(--console-theme-transition, 2200ms) ease,
+    text-shadow var(--console-theme-transition, 2200ms) ease;
+}
+
+.dg.main.gui-theme-light,
+.dg.main.gui-theme-light .dg {
+  color: #252525;
+  text-shadow: none;
+}
+
+.dg.main.gui-theme-light li:not(.folder),
+.dg.main.gui-theme-light .dg li:not(.folder) {
+  background: #f0f0f0;
+  border-bottom: 1px solid #d4d4d4;
+}
+
+.dg.main.gui-theme-light li.title,
+.dg.main.gui-theme-light .dg li.title {
+  background: #e6e6e6;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.dg.main.gui-theme-light .close-button {
+  background-color: #ddd;
+  color: #222;
+}
+
+.dg.main.gui-theme-light .close-button:hover {
+  background-color: #cfcfcf;
+}
+
+.dg.main.gui-theme-light .c input[type='text'] {
+  background: #fff;
+  color: #222;
+}
+
+.dg.main.gui-theme-light .c input[type='text']:hover {
+  background: #f5f5f5;
+}
+
+.dg.main.gui-theme-light .c input[type='text']:focus {
+  background: #fff;
+  color: #111;
+}
+
+.dg.main.gui-theme-light .cr.number input[type='text'] {
+  color: #156ba3;
+}
+
+.dg.main.gui-theme-light .cr.string input[type='text'] {
+  color: #0d7a40;
+}
+
+.dg.main.gui-theme-light .c .slider {
+  background: #dadada;
+}
+
+.dg.main.gui-theme-light .c .slider-fg {
+  background: #2a7ab8;
+}
+
+.dg.main.gui-theme-light .c .slider:hover {
+  background: #cecece;
+}
+
+.dg.main.gui-theme-light .cr.function:hover,
+.dg.main.gui-theme-light .cr.boolean:hover {
+  background: #e4e4e4;
+}
+
+.dg.main.gui-theme-light.main::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+}
+
+.dg.main.gui-theme-light.main::-webkit-scrollbar {
+  background: #e8e8e8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg.main,
+  .dg.main .dg,
+  .dg.main li:not(.folder),
+  .dg.main .dg li:not(.folder),
+  .dg.main li.title,
+  .dg.main .dg li.title,
+  .dg.main .c input[type='text'],
+  .dg.main .dg .c input[type='text'],
+  .dg.main .c .slider,
+  .dg.main .dg .c .slider,
+  .dg.main .close-button,
+  .dg.main .property-name,
+  .gui-console-theme-btn,
+  .icon-btn,
+  .gui-console-theme-add-slot > .gui-console-theme-add-layer,
+  .scene-transport__play-morph-icon,
+  .fg-url-morph-pane {
+    transition-duration: 0.01ms;
+  }
 }

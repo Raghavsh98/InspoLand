@@ -31,11 +31,19 @@
 <body>
 
   <canvas id="canvas"></canvas>
+
+  <div id="scatter-text-hero" class="scatter-text-hero" aria-hidden="true">
+    <div class="scatter-text-hero__wrap">
+      <canvas id="scatter-text-canvas" width="1400" height="720"></canvas>
+    </div>
+  </div>
+
   <!-- <button class="randomizeButton">Randomize</button> -->
   
   <!-- Top text elements -->
-  <div class="top-left-text">inspiration grasslands</div>
-  <div class="top-right-text"><a href="#" id="designer-notes-link">note from the designer</a></div>
+  <div class="top-left-text">
+    <a href="#" id="designer-notes-link">note from the designer</a>
+  </div>
   
   <!-- Popup Modal -->
   <div id="designer-popup" class="popup-overlay">
@@ -45,9 +53,11 @@
         <p>Delighted you're here :)</p>
         <br>
         <p>My name is Raghav! ("Raa-gv")</p>
-        <p>Im a product designer based in Seattle and on the rainiest days here, I love to revisit things that spark my design forward.</p>
+        <p>I'm a product designer based in San Jose and on my low days, I love to revisit inspiration that sparks my design forward.</p>
         <br>
-        <p>I hope in this grassland you find some design inspiration too! If you wish to share your favourite pieces that have inspired your work on hard days, <a href="https://x.com/raghavpink" target="_blank">DM me on X</a>.</p>
+        <p>I hope you find something for yourself in this grassland too. Feel free to submit any of your fav additions - I review submissions twice a week!</p>
+        <br>
+        <p>To chat, <a href="https://x.com/raghavpink" target="_blank">DM me on X</a>.</p>
         <br>
         <p>See more of my work <a href="https://www.raghavsharma.work/" target="_blank">here</a>.</p>
         <p>Big thanks to <a href="https://x.com/th_ebenezer" target="_blank">@th_ebenezer</a>, whose fluffy grass I reworked for this piece. The rest, vibe coded in Cursor.</p>
@@ -59,6 +69,14 @@
       </div>
     </div>
   </div>
+  <div
+    class="scene-transport"
+    role="group"
+    aria-label="Scene playback and sound"
+  >
+    <div id="scene-transport-react-mount" class="scene-transport__react-mount"></div>
+  </div>
+
   <div class="camera-panel">
     <h3>Camera Position</h3>
     <div class="coordinate">
@@ -75,12 +93,13 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.ts"></script>
+  <script type="module" src="/src/main.tsx"></script>
 
   <script>
     if (window.self !== window.top) {
       document.querySelector('.top-left-text').style.display = 'none';
-      document.querySelector('.top-right-text').style.display = 'none';
+      var heroEl = document.getElementById('scatter-text-hero');
+      if (heroEl) heroEl.style.display = 'none';
     }
   </script>
   
