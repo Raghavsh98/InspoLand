@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import Stats from "stats-gl";
+import { createRoot, type Root } from "react-dom/client";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as dat from "dat.gui";
+
+import { ConsoleThemeToolbar } from "./ui/ConsoleThemeToolbar";
+import { SceneTransportBar } from "./ui/SceneTransportBar";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
@@ -47,7 +51,7 @@ export class FluffyGrass {
 
 	private guiContainerEl: HTMLDivElement | null = null;
 	private readonly guiThemeStorageKey = "fg-console-theme";
-	/** Pill + `N` stay aligned with sky: day ↔ light GUI, night ↔ dark GUI. */
+	/** Pill + sky mode (`N` / `M`) stay aligned: day ↔ light GUI, night ↔ dark GUI. */
 	private applyGuiTheme: ((
 		theme: "dark" | "light",
 		persist: boolean,
@@ -59,8 +63,9 @@ export class FluffyGrass {
 	private rotateMusic?: HTMLAudioElement;
 	/** Independent of auto-rotate: only affects the rotate-mode background track. */
 	private musicMuted = false;
-	private transportPlayBtn: HTMLButtonElement | null = null;
-	private transportMuteBtn: HTMLButtonElement | null = null;
+	private transportReactRoot: Root | null = null;
+	/** Opens the console toolbar URL row (same as top Plus / `A` shortcut). */
+	private expandConsoleUrlSubmitRow: (() => void) | null = null;
 	/** After orb opens an external link: resume play on tab return only if transport was playing before that pause. */
 	private transportResumePlayAfterTabReturn = false;
 	private orbExternalPauseActive = false;
@@ -241,19 +246,11 @@ export class FluffyGrass {
 	}
 
 	private setupTransportControls() {
-		const playBtn = document.getElementById(
-			"scene-transport-play"
-		) as HTMLButtonElement | null;
-		const muteBtn = document.getElementById(
-			"scene-transport-mute"
-		) as HTMLButtonElement | null;
-		this.transportPlayBtn = playBtn;
-		this.transportMuteBtn = muteBtn;
-		if (!playBtn) {
+		const mount = document.getElementById("scene-transport-react-mount");
+		if (!mount) {
 			return;
 		}
-		playBtn.addEventListener("click", () => this.toggleTransportPlay());
-		muteBtn?.addEventListener("click", () => this.toggleTransportMute());
+		this.transportReactRoot = createRoot(mount);
 		this.refreshTransportUi();
 	}
 
@@ -280,13 +277,16 @@ export class FluffyGrass {
 		this.refreshTransportUi();
 	}
 
-	/** Skip transport shortcuts when focus is in form controls, buttons, or dat.GUI fields. */
+	/** Skip app shortcuts when typing or in native controls (incl. dat.GUI fields). */
 	private shouldIgnoreKeyboardShortcut(event: KeyboardEvent): boolean {
 		const t = event.target as HTMLElement | null;
 		if (!t) {
 			return false;
 		}
-		if (t.isContentEditable) {
+		if (t.isContentEditable || t.closest("[contenteditable='true']")) {
+			return true;
+		}
+		if (t.closest('[role="textbox"]')) {
 			return true;
 		}
 		const tag = t.tagName;
@@ -300,6 +300,10 @@ export class FluffyGrass {
 			return Boolean(t.closest(".dg input, .dg textarea, .dg select"));
 		}
 		return false;
+	}
+
+	private letterShortcutModifiersClear(event: KeyboardEvent): boolean {
+		return !event.metaKey && !event.ctrlKey && !event.altKey;
 	}
 
 	private toggleTransportMute() {
@@ -317,32 +321,14 @@ export class FluffyGrass {
 
 	private refreshTransportUi() {
 		const playing = this.orbitControls.autoRotate;
-		if (this.transportPlayBtn) {
-			this.transportPlayBtn.textContent = playing ? "Pause" : "Play";
-			this.transportPlayBtn.setAttribute("aria-pressed", playing ? "true" : "false");
-			this.transportPlayBtn.setAttribute(
-				"aria-label",
-				playing ? "Pause automatic camera rotation and music" : "Start automatic camera rotation and music"
-			);
-		}
-		if (this.transportMuteBtn) {
-			if (playing) {
-				this.transportMuteBtn.hidden = false;
-				this.transportMuteBtn.removeAttribute("aria-hidden");
-				this.transportMuteBtn.textContent = this.musicMuted ? "Unmute" : "Mute";
-				this.transportMuteBtn.setAttribute(
-					"aria-pressed",
-					this.musicMuted ? "true" : "false"
-				);
-				this.transportMuteBtn.setAttribute(
-					"aria-label",
-					this.musicMuted ? "Unmute background music" : "Mute background music"
-				);
-			} else {
-				this.transportMuteBtn.hidden = true;
-				this.transportMuteBtn.setAttribute("aria-hidden", "true");
-			}
-		}
+		this.transportReactRoot?.render(
+			<SceneTransportBar
+				playing={playing}
+				muted={this.musicMuted}
+				onTogglePlay={() => this.toggleTransportPlay()}
+				onToggleMute={() => this.toggleTransportMute()}
+			/>
+		);
 	}
 
 	private createCube() {
@@ -547,20 +533,10 @@ export class FluffyGrass {
 			toolbar.className = "gui-console-theme-toolbar";
 			toolbar.setAttribute("role", "group");
 			toolbar.setAttribute("aria-label", "Console color scheme");
-
-			const mkBtn = (theme: "dark" | "light", label: string) => {
-				const btn = document.createElement("button");
-				btn.type = "button";
-				btn.className = "gui-console-theme-btn";
-				btn.dataset.theme = theme;
-				btn.textContent = label;
-				btn.setAttribute("aria-pressed", "false");
-				return btn;
-			};
-			const darkBtn = mkBtn("dark", "Dark");
-			const lightBtn = mkBtn("light", "Light");
-			toolbar.append(darkBtn, lightBtn);
-			return { toolbar, darkBtn, lightBtn };
+			const reactMount = document.createElement("div");
+			reactMount.className = "gui-console-theme-toolbar-react";
+			toolbar.appendChild(reactMount);
+			return { toolbar, reactMount };
 		};
 
 		const inPanel = mkToolbar();
@@ -573,18 +549,71 @@ export class FluffyGrass {
 		floatingWrap.appendChild(floating.toolbar);
 		document.body.appendChild(floatingWrap);
 
-		const toolbars = [inPanel, floating];
+		const inPanelRoot = createRoot(inPanel.reactMount);
+		const floatingRoot = createRoot(floating.reactMount);
+
+		let themeForToolbar: "dark" | "light" = "dark";
+		let urlSubmitExpanded = false;
+		let urlDraft = "";
 
 		const skyModeForGuiTheme = (theme: "dark" | "light") =>
 			theme === "light" ? "day" : "night";
 
+		let renderThemeToolbars: () => void;
+
+		const requestUrlSubmitExpand = () => {
+			if (!urlSubmitExpanded) {
+				urlSubmitExpanded = true;
+				renderThemeToolbars();
+			}
+		};
+
+		const collapseUrlSubmitIfEmpty = () => {
+			if (!urlSubmitExpanded || urlDraft.trim() !== "") return;
+			urlSubmitExpanded = false;
+			urlDraft = "";
+			renderThemeToolbars();
+		};
+
+		const onPointerDownMaybeCollapseUrlRow = (e: PointerEvent) => {
+			if (!urlSubmitExpanded || urlDraft.trim() !== "") return;
+			const t = e.target;
+			if (!(t instanceof Node)) return;
+			for (const slot of document.querySelectorAll(".gui-console-theme-add-slot")) {
+				if (slot.contains(t)) return;
+			}
+			collapseUrlSubmitIfEmpty();
+		};
+		document.addEventListener("pointerdown", onPointerDownMaybeCollapseUrlRow);
+
+		renderThemeToolbars = () => {
+			const toolbarProps = {
+				theme: themeForToolbar,
+				onToggle: () => this.skySystem.toggleMode(),
+				urlSubmitExpanded,
+				onRequestUrlSubmitExpand: requestUrlSubmitExpand,
+				urlDraft,
+				onUrlDraftChange: (value: string) => {
+					urlDraft = value;
+					renderThemeToolbars();
+				},
+			};
+			inPanelRoot.render(
+				<ConsoleThemeToolbar {...toolbarProps} autofocusUrlInput={false} />
+			);
+			floatingRoot.render(
+				<ConsoleThemeToolbar {...toolbarProps} autofocusUrlInput={true} />
+			);
+		};
+
+		this.expandConsoleUrlSubmitRow = requestUrlSubmitExpand;
+
 		const apply = (theme: "dark" | "light", persist: boolean, skipSkySync: boolean) => {
+			themeForToolbar = theme;
 			panelRoot.classList.toggle("gui-theme-light", theme === "light");
 			floatingWrap.classList.toggle("is-gui-theme-light", theme === "light");
-			for (const t of toolbars) {
-				t.darkBtn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-				t.lightBtn.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
-			}
+			document.body.classList.toggle("gui-theme-light", theme === "light");
+			renderThemeToolbars();
 			if (persist) {
 				try {
 					localStorage.setItem(this.guiThemeStorageKey, theme);
@@ -615,13 +644,6 @@ export class FluffyGrass {
 			const theme = this.skySystem.getMode() === "day" ? "light" : "dark";
 			this.applyGuiTheme?.(theme, true, true);
 		});
-
-		const wire = (t: ReturnType<typeof mkToolbar>) => {
-			t.darkBtn.addEventListener("click", () => apply("dark", true, false));
-			t.lightBtn.addEventListener("click", () => apply("light", true, false));
-		};
-		wire(inPanel);
-		wire(floating);
 
 		panelRoot.style.position = "relative";
 		panelRoot.appendChild(inPanel.toolbar);
@@ -686,34 +708,41 @@ export class FluffyGrass {
 
 	private setupEventListeners() {
 		window.addEventListener("resize", () => this.setAspectResolution(), false);
+		/* App shortcuts: P play/pause, S mute/unmute, A open URL row on console toolbar, M/N sky+GUI theme. */
 		window.addEventListener("keydown", (event) => {
+			if (this.shouldIgnoreKeyboardShortcut(event)) {
+				return;
+			}
+
 			const key = event.key.toLowerCase();
-			if (key === "n") {
-				if (this.shouldIgnoreKeyboardShortcut(event)) {
+
+			if (!this.letterShortcutModifiersClear(event)) {
+				return;
+			}
+
+			if (key === "p") {
+				if (event.repeat) {
 					return;
 				}
+				event.preventDefault();
+				this.toggleTransportPlay();
+				return;
+			}
+
+			if (key === "n" || key === "m") {
 				event.preventDefault();
 				this.skySystem.toggleMode();
 				return;
 			}
-
-			const isSpace = event.code === "Space" || event.key === " ";
-			const isAToggle =
-				key === "a" && !event.metaKey && !event.ctrlKey && !event.altKey;
-
-			if (!isSpace && !isAToggle) {
-				return;
-			}
-			if (this.shouldIgnoreKeyboardShortcut(event)) {
-				return;
-			}
-			if (isSpace && event.repeat) {
-				return;
-			}
-
-			this.toggleTransportPlay();
-			if (isSpace) {
+			if (key === "s") {
 				event.preventDefault();
+				this.toggleTransportMute();
+				return;
+			}
+			if (key === "a") {
+				event.preventDefault();
+				this.expandConsoleUrlSubmitRow?.();
+				return;
 			}
 		});
 

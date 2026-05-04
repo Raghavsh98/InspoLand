@@ -72,25 +72,7 @@
     role="group"
     aria-label="Scene playback and sound"
   >
-    <button
-      type="button"
-      class="scene-transport__btn scene-transport__btn--primary"
-      id="scene-transport-play"
-      aria-pressed="false"
-    >
-      Play
-    </button>
-    <button
-      type="button"
-      class="scene-transport__btn"
-      id="scene-transport-mute"
-      hidden
-      aria-hidden="true"
-      aria-pressed="false"
-      aria-label="Mute background music"
-    >
-      Mute
-    </button>
+    <div id="scene-transport-react-mount" class="scene-transport__react-mount"></div>
   </div>
 
   <div class="camera-panel">
@@ -109,7 +91,7 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.ts"></script>
+  <script type="module" src="/src/main.tsx"></script>
 
   <script>
     if (window.self !== window.top) {
